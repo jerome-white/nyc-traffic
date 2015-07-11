@@ -1,0 +1,9 @@
+prefix,dest,type,default,action,choices
+observation-window,window_obs,int,15,,
+prediction-window,window_pred,int,5,,
+target-window,window_trgt,int,5,,
+clusters,clusters,int,3,,
+speed-threshold,threshold,float,-0.002,
+fig-directory,figures,,,,
+resume,resume,,,,
+pickle,pickle,,,,

@@ -1,0 +1,11 @@
+prefix,dest,type,default,action,choices
+observation-window,window_obs,int,15,,
+prediction-window,window_pred,int,5,,
+target-window,window_trgt,int,5,,
+k-folds,folds,int,4,,
+neighbors,neighbors,int,0,,
+classifier,classifier,,,append,svm|bayes|forest|boost|tree
+model,model,,,,classification|estimation
+print-header,header,,,store_true,
+no-print-header,header,,,store_false,
+speed-threshold,threshold,float,-0.002,
