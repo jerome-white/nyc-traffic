@@ -1,19 +1,19 @@
 import pickle
 
-import node as nd
 import numpy as np
+import pandas as pd
 import datetime as dt
 import scipy.stats as st
 
-from db import DatabaseConnection
-from cli import CommandLine
-from logger import Logger
 from os.path import expanduser
 from tempfile import NamedTemporaryFile
-from csvwriter import CSVWriter 
 from multiprocessing import Pool
 
-import pandas as pd
+from lib import cli
+from lib import node as nd
+from lib.db import DatabaseConnection
+from lib.logger import Logger
+from lib.csvwriter import CSVWriter
 
 class Influence:
     def __init__(self, source, neighbors, args):
@@ -114,13 +114,13 @@ class WindowInfluence(Influence):
         
         return (left, right, delay)
             
-def stargen(cli):
+def stargen(cargs):
     with DatabaseConnection() as conn:
         for (i, node) in enumerate(nd.getnodes(conn)):
-            yield (i, node, cli.args)
+            yield (i, node, cargs.args)
                     
 def f(*args):
-    (_, node, cli) = args
+    (_, node, cargs) = args
     log = Logger().log
 
     log.info('{0}: setup +'.format(node))
@@ -131,12 +131,12 @@ def f(*args):
     
     classes = [ WindowInfluence ] # [ MinuteInfluence, WindowInfluence ]
     
-    return [ i(source, neighbors, cli).run() for i in classes ]
+    return [ i(source, neighbors, cargs).run() for i in classes ]
 
 with Pool() as pool:
-    cli = CommandLine(expanduser('~/.trafficrc/opts.main'))
+    cargs = cli.CommandLine(cli.optsfile('main'))
     
-    results = pool.starmap(f, stargen(cli))
+    results = pool.starmap(f, stargen(cargs))
     with NamedTemporaryFile(mode='wb', delete=False) as fp:
         pickle.dump(results, fp)
         msg = 'pickle: {0}'.format(fp.name)

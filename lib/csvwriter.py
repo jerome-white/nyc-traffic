@@ -1,4 +1,5 @@
 import sys
+
 from csv import DictWriter
 
 class CSVWriter:

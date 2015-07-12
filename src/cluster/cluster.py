@@ -1,24 +1,23 @@
 import sys
-import utils
 import pickle
 
-import node as nd
 import numpy as np
 import pandas as pd
-import cpoint as cp
 import scipy.constants as constant
 
-from db import DatabaseConnection
-from cli import CommandLine
-from data import DataStore
-from logger import log
 from os.path import expanduser
-from csvwriter import CSVWriter
 from collections import defaultdict
 from multiprocessing import Pool
 from sklearn.cluster import KMeans
 
-########################################################################
+from lib import cli
+from lib import utils
+from lib import node as nd
+from lib import cpoint as cp
+from lib.db import DatabaseConnection
+from lib.data import DataStore
+from lib.logger import log
+from lib.csvwriter import CSVWriter
 
 def aggregate(data, rng, f=sum, default=0):
     l = []
@@ -33,19 +32,19 @@ def aggregate(data, rng, f=sum, default=0):
     return l
 
 # this should live in node.py
-def stargen(cli):
+def stargen(cargs):
     with DatabaseConnection() as conn:
         for (i, j) in enumerate(nd.getnodes(conn)):
-            yield (i, j, cli.args)
+            yield (i, j, cargs.args)
 
 def f(*args):
-    (index, node, cli) = args
+    (index, node, cargs) = args
      
     log.info(node)
     
     minutes_per_day = round(constant.day / constant.minute)
     oneday = pd.date_range(start=0, periods=minutes_per_day, freq='T')
-    win = sum([ cli.window_obs, cli.window_pred, cli.window_trgt ])
+    win = sum([ cargs.window_obs, cargs.window_pred, cargs.window_trgt ])
     (attempted, completed) = (0, 0) # window accounting
     row = defaultdict(list)
 
@@ -57,13 +56,13 @@ def f(*args):
             continue
         attempted += 1
         
-        left = period.head(cli.window_obs)
-        right = period.tail(cli.window_trgt)
+        left = period.head(cargs.window_obs)
+        right = period.tail(cargs.window_trgt)
 
         chg = nd.complete(left) and nd.complete(right)
         if chg:
             (lmean, rmean) = [ i.values.mean() for i in (left, right) ]
-            chg = cp.changed(cli.window_pred, lmean, rmean, cli.threshold)
+            chg = cp.changed(cargs.window_pred, lmean, rmean, cargs.threshold)
             completed += 1
 
         key = cp.bucket(right.index[0])
@@ -82,8 +81,8 @@ def f(*args):
     r.append(node)
 
     # plot
-    if cli.figures:
-        key = cli.threshold
+    if cargs.figures:
+        key = cargs.threshold
         df = pd.DataFrame(columns=[ key ], index=oneday)
         assert(len(df.index) == minutes_per_day)
         df[key] = aggregate(row, len(df.index), np.nanmean)
@@ -91,29 +90,29 @@ def f(*args):
         # df.to_csv(csv)
         elements = [
             [ '} |', str(source) ],
-            [ '}', cli.window_obs ],
-            [ '}', cli.window_pred ],
-            [ '}', cli.window_trgt ],
+            [ '}', cargs.window_obs ],
+            [ '}', cargs.window_pred ],
+            [ '}', cargs.window_trgt ],
             [ ':.3f}', pct ],
         ]
 
-        fname = utils.mkfname(cli.figures, node, 'png')
+        fname = utils.mkfname(cargs.figures, node, 'png')
         title = utils.mktitle(elements)
         utils.mkplot(df, fname, title, True)
 
     return r
 
 ########################################################################
-    
-cli = CommandLine(expanduser('~/.trafficrc/opts.cp'))
-args = cli.args
+
+cargs = cli.CommandLine(cli.optsfile('chgpt'))
+args = cargs.args
 
 if args.resume:
     with open(args.resume, mode='rb') as fp:
         observations = pickle.load(fp)
 else:
     with Pool() as pool:
-        observations = list(filter(None, pool.starmap(f, stargen(cli))))
+        observations = list(filter(None, pool.starmap(f, stargen(cargs))))
         assert(observations)
 
     if args.pickle:

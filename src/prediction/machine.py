@@ -1,18 +1,11 @@
-import data
 import pickle
 import warnings
 import sklearn.metrics
 
-import node as nd
 import numpy as np
-import cpoint as cp
 import datetime as dt
-import aggregator as ag
 
-from db import DatabaseConnection
-from logger import log
 from tempfile import NamedTemporaryFile
-from csvwriter import CSVWriter
 from collections import deque
 from sklearn.svm import SVC
 from sklearn.svm import SVR
@@ -22,6 +15,14 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics.metrics import UndefinedMetricWarning
+
+from lib import data
+from lib import node as nd
+from lib import cpoint as cp
+from lib import aggregator as ag
+from lib.db import DatabaseConnection
+from lib.logger import log
+from lib.csvwriter import CSVWriter
 
 class Machine:
     def __init__(self, nid, cli):

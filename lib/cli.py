@@ -1,5 +1,9 @@
+import os
 import csv
 import argparse
+
+def optsfile(basename):
+    return os.path.join(os.environ['NYCTRAFFICOPTS'], basename)
 
 class CommandLine:
     __type_map = {

@@ -1,26 +1,27 @@
+import os
 import machine
 
-from db import DatabaseConnection
-from cli import CommandLine
-from node import getnodes
-from logger import log
-from os.path import expanduser
 from csvwriter import CSVWriter 
 from multiprocessing import Pool
 
-def stargen(cli):
+from lib import cli
+from lib.db import DatabaseConnection
+from lib.node import getnodes
+from lib.logger import log
+
+def stargen(cargs):
     with DatabaseConnection() as conn:
         for (i, j) in enumerate(getnodes(conn)):
-            yield (i, j, cli)
+            yield (i, j, cargs)
 
 def f(*args):
-    (index, node, cli) = args
+    (index, node, cargs) = args
     log.info('node: {0}'.format(node))
     
-    if cli.args.model == 'classification':
-        model = machine.Classifier(node, cli)
-    elif cli.args.model == 'estimation':
-        model = machine.Estimator(node, cli)
+    if cargs.args.model == 'classification':
+        model = machine.Classifier(node, cargs)
+    elif cargs.args.model == 'estimation':
+        model = machine.Estimator(node, cargs)
     else:
         raise AttributeError('Unrecognized machine type')
 
@@ -40,13 +41,13 @@ def hextract(results):
     return (header, results)
 
 with Pool() as pool:
-    cli = CommandLine(expanduser('~/.trafficrc/opts.main'))
+    cargs = cli.CommandLine(cli.optsfile('main'))
     
-    results = list(filter(None, pool.starmap(f, stargen(cli))))
+    results = list(filter(None, pool.starmap(f, stargen(cargs))))
     (header, body) = hextract(results)
     
     with CSVWriter(header, delimiter=';') as writer:
-        if cli.args.header:
+        if cargs.args.header:
             writer.writeheader()
         for i in body:
             writer.writerows(i)

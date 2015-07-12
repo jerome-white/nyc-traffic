@@ -1,6 +1,6 @@
 import numpy as np
 
-from logger import Logger
+from lib.logger import Logger
 from sklearn.cross_validation import StratifiedShuffleSplit
 
 def cleanse(data):

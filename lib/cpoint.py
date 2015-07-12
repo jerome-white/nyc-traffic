@@ -1,7 +1,5 @@
 import scipy.constants as constant
 
-########################################################################
-
 def to_gravity(duration, before, after):
     '''
     Assume x and y to be miles per hour, and t to be minutes
