@@ -1,17 +1,16 @@
-import pymysql
-
 import numpy as np
 import pandas as pd
 import datetime as dt
 
-from lib import db
 from tempfile import NamedTemporaryFile
-from lib.logger import log
 from collections import namedtuple
 from statsmodels.tsa import stattools as st
-from numpy.linalg.linalg import LinAlgError
 
-Element = namedtuple('Element', [ 'node', 'lag' ])
+from lib import db
+from lib import cluster as cl
+from lib.logger import log
+
+Element = namedtuple('Element', [ 'node', 'lag', 'root' ])
 Window = namedtuple('Window', [ 'observation', 'prediction', 'target' ])
 
 def getnodes(connection, restrict=True):
@@ -33,41 +32,56 @@ def nodegen(args):
         for (i, j) in enumerate(getnodes(conn)):
             yield (i, j, args)
 
-def neighbors_(source, levels, conn, f, ntree=None):
+def neighbors_(source, levels, conn, ntree=None):
     if not ntree:
-        root = Element(source, 0)
+        root = Element(source, 0, True)
         ntree = { source.nid: root }
 
     if levels > 0:
-        for i in source.neighbors.difference(ntree.keys()):
-            node = Node(i, conn)
-            lag = f(source, node) + ntree[source.nid].lag
-            node.align(source, True)
-            if complete(node.readings):
-                ntree[i] = Element(node, lag)
-                n = neighbors_(node, levels - 1, conn, f, ntree) # recurse!
+        try:
+            cluster = cl.VARCluster(source.nid)
+        except AttributeError as err:
+            log.error(err)
+            return ntree
+
+        for i in cluster.neighbors:
+            if not (i in ntree and ntree[i].root):
+                try:
+                    lag = cluster.lag(i)
+                except ValueError as err:
+                    log.error(err)
+                    continue
+
+                if i in ntree:
+                    ntree[i].lag += lag
+                else:
+                    node = Node(i, conn)
+                    ntree[i] = Element(node, lag, False)
+
+                node = ntree[i].node
+                n = neighbors_(node, levels - 1, conn, ntree)
                 ntree.update(n)
-            else:
-                with NamedTemporaryFile(mode='w', delete=False) as fp:
-                    node.readings.to_csv(fp)
-                    m = '{0}->{1} {2}'.format(source.nid, node.nid, fp.name)
-                    log.debug(m)
                     
     return ntree
             
-def neighbors(source, levels, conn, f=lambda x, y: 0):
-    return neighbors_(source, levels, conn, f).values()
+def neighbors(source, levels, conn):
+    n = neighbors_(source, levels, conn)
+    for (i, j) in n.items():
+        if i != source.nid:
+            j.node.align(source, True)
+
+    return n.values()
 
 def nacount(data, col='speed'):
     return data[col].isnull().sum()
 
-def complete(data):
-    return data.size > 0 and nacount(data) == 0
+def complete(data, col='speed'):
+    return data.size > 0 and nacount(data, col) == 0
     
 class Node:
-    def __init__(self, nid, connection=None, start=None, stop=None):
+    def __init__(self, nid, connection=None, start=None, stop=None, freq='T'):
         self.nid = nid
-        self.freq = 'T'
+        self.freq = freq
 
         close = not connection
         if close:
@@ -145,7 +159,7 @@ class Node:
             yield (idx[i:j], idx[k:l])
     
     def align(self, other, interpolate=False):
-        data = self.readings.reindex(other.range())
+        data = self.readings.reindex(other.readings.index)
         if interpolate:
             # XXX think about limiting this!
             data = data.interpolate().fillna(method='backfill')
@@ -169,63 +183,3 @@ class Node:
         condition = np.abs(data - data.mean()) <= thresh * data.std()
 
         return self.readings[condition]
-
-class Cluster:
-    def __init__(self, nid, freq='T'):
-        self.nid = nid
-        with db.DatabaseConnection() as conn:
-            self.neighbors = self.__get_neighbors(conn)
-            self.readings = self.__get_readings(self.neighbors, conn, freq)
-
-    def addlag(self, lag, inclusive=False, delimiter='-'):
-        cols = list(self.neighbors)
-        if inclusive:
-            cols += [ self.nid ]
-
-        for i in map(str, cols):
-            column = delimiter.join([ i, str(lag) ])
-            self.readings[column] = self.readings[i].shift(lag)
-        
-    def __repr__(self):
-        return str(self.nid)
-
-    def __str__(self):
-        return '{0:03d}'.format(self.nid)
-
-    def __where_clause(self, neighbors, splt=3):
-        a = ' node = '.join(map(str, [''] + neighbors)).split()
-        b = [ a[x:x + splt] for x in range(0, len(a), splt) ]
-        
-        return ' or '.join([ ' '.join(x) for x in b ])
-        
-    def __get_readings(self, neighbors, connection, freq):
-        nodes = list(neighbors) + [ self.nid ]
-        sql = ('SELECT as_of, node, speed ' +
-               'FROM reading ' +
-               'WHERE {0}')
-        sql = sql.format(self.__where_clause(nodes))
-        
-        data = pd.read_sql_query(sql, con=connection)
-        data.reset_index(inplace=True)
-        data = data.pivot(index='as_of', columns='node', values='speed')
-
-        # Make this node id the first column
-        cols = data.columns
-        i = cols.tolist().index(self.nid)
-        cols = np.roll(cols, -i)
-        data = data.ix[:,cols]
-
-        data.columns = data.columns.astype(str)
-        
-        return data.resample(freq)
-
-    def __get_neighbors(self, connection):
-        sql = ('SELECT target.id AS id ' +
-               'FROM node source, node target ' +
-               'WHERE INTERSECTS(source.segment, target.segment) ' +
-               'AND source.id = {0} AND target.id <> {0}')
-        sql = sql.format(self.nid)
-        with db.DatabaseCursor(connection) as cursor:
-            cursor.execute(sql)
-
-            return frozenset([ row['id'] for row in cursor ])

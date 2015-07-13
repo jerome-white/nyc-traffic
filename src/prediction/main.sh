@@ -17,8 +17,6 @@ estfmt() {
     return
 }
 
-path=`cd $(dirname $0) && pwd`
-
 unset header
 machines=(
     # svm
@@ -27,7 +25,8 @@ machines=(
     # tree
 )
 mtype=classifier
-out=$HOME/data/traffic/log/prediction/`date +%Y-%m%d-%H%M%S`
+nycpath=$NYCTRAFFIC/src/prediction
+out=$nycpath/log/`date +%Y-%m%d-%H%M%S`
 
 mkdir --parents $out
 ( cd log; rm --force current; ln --symbolic `basename $out` current )
@@ -37,7 +36,7 @@ for pw in 6; do # `seq 3 3 6`; do
     for n in 1; do # `seq 0 1`; do
 	echo "[ `date` ] $pw $n" >> $out/trace
 	    
-	python3 $path/main.py \
+	python3 $nycpath/main.py \
 	    --neighbors $n \
 	    --observation-window 10 \
 	    --prediction-window $pw \
@@ -52,8 +51,3 @@ for pw in 6; do # `seq 3 3 6`; do
 	fi
     done
 done > $out/dat 2> $out/log
-
-#
-# Neighbor readings are interpolated and the same feature vector is
-# used in the neighbor and non-neighbor case
-#

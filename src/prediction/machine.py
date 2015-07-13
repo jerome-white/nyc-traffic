@@ -14,7 +14,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.naive_bayes import GaussianNB
-from sklearn.metrics.metrics import UndefinedMetricWarning
+from sklearn.metrics.base import UndefinedMetricWarning
 
 from lib import data
 from lib import node as nd
@@ -57,19 +57,18 @@ class Machine:
         
         with DatabaseConnection() as conn: 
             source = nd.Node(self.nid, connection=conn)
-            # nodes = nd.neighbors(source, self.args.neighbors, conn)
-            delay = lambda x, y: 5
-            nodes = nd.neighbors(source, self.args.neighbors, conn, delay)
-    
+            nodes = nd.neighbors(source, self.args.neighbors, conn)
+
             msg = ', '.join(map(lambda x: ':'.join(map(repr, x)), nodes))
             log.debug('{0}: {1}'.format(source.nid, msg))
 
-        aggregator = ag.PctChangeAggregator(len(nodes), win.observations)
+        aggregator = ag.PctChangeAggregator(len(nodes), window.observation)
         
         for (i, j) in source.range(window):
+            # log.info('{0}: {1} {2}'.format(self.nid, i[0], j[0]))
             try:
-                label = self._label(source, left, right)
-                features = self._features(nodes, left, aggregator)
+                label = self._label(source, i, j)
+                features = self._features(nodes, i, aggregator)
                 observations.append(features + label)
             except ValueError as verr:
                 # log.error(verr)
@@ -202,16 +201,18 @@ class Classifier(Machine):
         return features
 
     def _label(self, node, left, right):
-        (l, r) = [ node.readings.speed.ix[i] for i in (left, right) ]
-         
-        if not (nd.complete(l) and nd.complete(r)):
-            msg = 'Incomplete measurement interval: {0}: {1}({3})-{2}({4})'
-            err = msg.format(self.nid, left[0], right[0],
-                             left.size, right.size)
-            raise ValueError(err)
+        means = []
+        for i in (left, right):
+            series = node.readings.speed.ix[i]
+            nans = series.isnull().values.sum()
+            if nans > 0:
+                msg = '{0}: Incomplete interval: {1}-{2} {3} of {4}'
+                err = msg.format(node, i[0], i[-1], nans, len(i))
+                raise ValueError(err)
+            means.append(series.mean())
+        (l, r) = means
         
-        (x, y) = [ i.values.mean() for i in (l, r) ]
-        label = cp.changed(self.args.window_pred, x, y, self.args.threshold)
+        label = cp.changed(self.args.window_pred, l, r, self.args.threshold)
          
         return [ int(label) ]
 

@@ -1,12 +1,12 @@
 import os
 import machine
 
-from csvwriter import CSVWriter 
 from multiprocessing import Pool
 
 from lib import cli
 from lib.node import nodegen
 from lib.logger import log
+from lib.csvwriter import CSVWriter 
 
 def f(*args):
     (index, node, cargs) = args
@@ -35,7 +35,7 @@ def hextract(results):
     return (header, results)
 
 with Pool() as pool:
-    cargs = cli.CommandLine(cli.optsfile('main'))
+    cargs = cli.CommandLine(cli.optsfile('prediction'))
     
     results = list(filter(None, pool.starmap(f, nodegen(cargs))))
     (header, body) = hextract(results)
