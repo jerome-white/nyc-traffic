@@ -5,14 +5,8 @@ from csvwriter import CSVWriter
 from multiprocessing import Pool
 
 from lib import cli
-from lib.db import DatabaseConnection
-from lib.node import getnodes
+from lib.node import nodegen
 from lib.logger import log
-
-def stargen(cargs):
-    with DatabaseConnection() as conn:
-        for (i, j) in enumerate(getnodes(conn)):
-            yield (i, j, cargs)
 
 def f(*args):
     (index, node, cargs) = args
@@ -43,7 +37,7 @@ def hextract(results):
 with Pool() as pool:
     cargs = cli.CommandLine(cli.optsfile('main'))
     
-    results = list(filter(None, pool.starmap(f, stargen(cargs))))
+    results = list(filter(None, pool.starmap(f, nodegen(cargs))))
     (header, body) = hextract(results)
     
     with CSVWriter(header, delimiter=';') as writer:

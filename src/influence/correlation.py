@@ -114,11 +114,6 @@ class WindowInfluence(Influence):
         
         return (left, right, delay)
             
-def stargen(cargs):
-    with DatabaseConnection() as conn:
-        for (i, node) in enumerate(nd.getnodes(conn)):
-            yield (i, node, cargs.args)
-                    
 def f(*args):
     (_, node, cargs) = args
     log = Logger().log
@@ -136,7 +131,7 @@ def f(*args):
 with Pool() as pool:
     cargs = cli.CommandLine(cli.optsfile('main'))
     
-    results = pool.starmap(f, stargen(cargs))
+    results = pool.starmap(f, nd.nodegen(cargs.args))
     with NamedTemporaryFile(mode='wb', delete=False) as fp:
         pickle.dump(results, fp)
         msg = 'pickle: {0}'.format(fp.name)

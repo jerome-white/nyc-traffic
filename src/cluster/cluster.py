@@ -31,12 +31,6 @@ def aggregate(data, rng, f=sum, default=0):
         
     return l
 
-# this should live in node.py
-def stargen(cargs):
-    with DatabaseConnection() as conn:
-        for (i, j) in enumerate(nd.getnodes(conn)):
-            yield (i, j, cargs.args)
-
 def f(*args):
     (index, node, cargs) = args
      
@@ -112,7 +106,8 @@ if args.resume:
         observations = pickle.load(fp)
 else:
     with Pool() as pool:
-        observations = list(filter(None, pool.starmap(f, stargen(cargs))))
+        observations = pool.starmap(f, nd.nodegen(cargs.args))
+        observations = list(filter(None, observations))
         assert(observations)
 
     if args.pickle:
