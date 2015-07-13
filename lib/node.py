@@ -6,7 +6,7 @@ import datetime as dt
 
 from lib import db
 from tempfile import NamedTemporaryFile
-from lib.logger import Logger
+from lib.logger import log
 from collections import namedtuple
 from statsmodels.tsa import stattools as st
 from numpy.linalg.linalg import LinAlgError
@@ -51,7 +51,7 @@ def neighbors_(source, levels, conn, f, ntree=None):
                 with NamedTemporaryFile(mode='w', delete=False) as fp:
                     node.readings.to_csv(fp)
                     m = '{0}->{1} {2}'.format(source.nid, node.nid, fp.name)
-                    Logger().log.debug(m)
+                    log.debug(m)
                     
     return ntree
             
@@ -92,8 +92,6 @@ class Node:
     def __hash__(self):
         return self.nid
     
-    # ###################################################################
-
     def __get_name(self, connection):
         sql = ('SELECT name ' +
                'FROM node '+
@@ -135,8 +133,6 @@ class Node:
             cursor.execute(sql)
             return frozenset([ row['id'] for row in cursor ])
         
-    # ###################################################################
-
     def range(self, window, bound=True):
         idx = self.readings.index
         for (i, _) in enumerate(idx):
@@ -175,11 +171,11 @@ class Node:
         return self.readings[condition]
 
 class Cluster:
-    def __init__(self, nid):
+    def __init__(self, nid, freq='T'):
         self.nid = nid
-        with db.DatabaseConnection() as connection:
-            self.neighbors = self.__get_neighbors(connection)
-            self.readings = self.__get_readings(self.neighbors, connection)
+        with db.DatabaseConnection() as conn:
+            self.neighbors = self.__get_neighbors(conn)
+            self.readings = self.__get_readings(self.neighbors, conn, freq)
 
     def addlag(self, lag, inclusive=False, delimiter='-'):
         cols = list(self.neighbors)
@@ -202,7 +198,7 @@ class Cluster:
         
         return ' or '.join([ ' '.join(x) for x in b ])
         
-    def __get_readings(self, neighbors, connection):
+    def __get_readings(self, neighbors, connection, freq):
         nodes = list(neighbors) + [ self.nid ]
         sql = ('SELECT as_of, node, speed ' +
                'FROM reading ' +
@@ -212,9 +208,16 @@ class Cluster:
         data = pd.read_sql_query(sql, con=connection)
         data.reset_index(inplace=True)
         data = data.pivot(index='as_of', columns='node', values='speed')
+
+        # Make this node id the first column
+        cols = data.columns
+        i = cols.tolist().index(self.nid)
+        cols = np.roll(cols, -i)
+        data = data.ix[:,cols]
+
         data.columns = data.columns.astype(str)
         
-        return data.resample('T')
+        return data.resample(freq)
 
     def __get_neighbors(self, connection):
         sql = ('SELECT target.id AS id ' +
@@ -224,4 +227,5 @@ class Cluster:
         sql = sql.format(self.nid)
         with db.DatabaseCursor(connection) as cursor:
             cursor.execute(sql)
+
             return frozenset([ row['id'] for row in cursor ])
