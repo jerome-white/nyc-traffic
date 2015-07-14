@@ -4,6 +4,7 @@ import sklearn.metrics
 
 import numpy as np
 import datetime as dt
+import scipy.constants as constant
 
 from tempfile import NamedTemporaryFile
 from collections import deque
@@ -214,7 +215,12 @@ class Classifier(Machine):
             means.append(series.mean())
         (l, r) = means
 
-        label = cp.changed(self.args.window_pred, l, r, self.args.threshold)
+
+        gap = right - left
+        duration = gap.total_seconds() / constant.minute
+        assert(int(duration) == self.args.window_pred)
+
+        label = cp.changed(duration, l, r, self.args.threshold)
          
         return [ int(label) ]
 
