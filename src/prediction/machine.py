@@ -36,6 +36,7 @@ class Machine:
             'shape',
             'node',
             'kfold',
+            'cluster',
             ]
         self.classifiers_ = {}
         self.probs = None
@@ -59,8 +60,9 @@ class Machine:
             source = nd.Node(self.nid, connection=conn)
             nodes = nd.neighbors(source, self.args.neighbors, conn)
 
-            msg = ', '.join(map(lambda x: ':'.join(map(repr, x)), nodes))
-            log.debug('{0}: {1}'.format(source.nid, msg))
+        msg = ', '.join(map(lambda x: ':'.join(map(repr, x)), nodes))
+        log.debug('{0}: {1}'.format(source.nid, msg))
+        self.cluster = [ (x.node.nid, x.lag) for x in nodes ]
 
         aggregator = ag.PctChangeAggregator(len(nodes), window.observation)
         
@@ -105,11 +107,13 @@ class Machine:
                 self.set_probabilities(clf, x_test)
             
                 lst = [
-                    ptr.__name__,
-                    x_train.shape,
-                    self.nid,
-                    j,
+                    ptr.__name__,  # implementation
+                    x_train.shape, # shape
+                    self.nid,      # node
+                    j,             # (k)fold
+                    self.cluster,  # cluster
                 ]
+                assert(len(lst) == len(self.header))
                 d = dict(zip(self.header_, lst))
                 d.update(self.args.__dict__)
         
@@ -181,21 +185,19 @@ class Classifier(Machine):
         features = []
         
         for n in nodes:
-            df = n.node.readings
-            if n.node.nid == self.nid:
-                lag = 0
-            else:
-                lag = df.travel.ix[left].mean()
-            values = df.speed.shift(lag).ix[left]
+            (df, lag) = (n.node.readings, n.lag)
+            # lag = 0 if n.root else df.travel.ix[left].mean()
+            if lag > 0:
+                df = df.shift(lag)
+            values = df.speed.ix[left]
             assert(len(values) == self.args.window_obs)
-            distilled = aggregator.aggregate(values)
             
-            bad = np.count_nonzero(~np.isfinite(distilled))
-            if bad > 0:
-                msg = '{0}|{1}-{2} {3}|{4}'
-                msg = msg.format(n.node, left, right, values, distilled)
-                log.info(msg)
-                
+            distilled = aggregator.aggregate(values)
+            # bad = np.count_nonzero(~np.isfinite(distilled))
+            # if bad > 0:
+            #     msg = '{0}|{1}-{2} {3}|{4}'
+            #     msg = msg.format(n.node, left, right, values, distilled)
+            #     log.info(msg)
             features.extend(distilled)
 
         return features
@@ -211,7 +213,7 @@ class Classifier(Machine):
                 raise ValueError(err)
             means.append(series.mean())
         (l, r) = means
-        
+
         label = cp.changed(self.args.window_pred, l, r, self.args.threshold)
          
         return [ int(label) ]
