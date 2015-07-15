@@ -215,9 +215,8 @@ class Classifier(Machine):
             means.append(series.mean())
         (l, r) = means
 
-
         gap = right[0] - left[-1]
-        duration = (gap.total_seconds() / constant.minute) + 1
+        duration = (gap.total_seconds() / constant.minute) - 1
         assert(int(duration) == self.args.window_pred)
 
         label = cp.changed(duration, l, r, self.args.threshold)
