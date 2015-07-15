@@ -114,7 +114,7 @@ class Machine:
                     j,             # (k)fold
                     self.cluster,  # cluster
                 ]
-                assert(len(lst) == len(self.header))
+                assert(len(lst) == len(self.header_))
                 d = dict(zip(self.header_, lst))
                 d.update(self.args.__dict__)
         
