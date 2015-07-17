@@ -1,29 +1,22 @@
 #!/bin/bash
 
-# 2015-0611-152910 3,6 1
-# 2015-0612-140613   6 0,1
-# 2015-0614-001927 3   0,1
-# 2015-0615-112906   6 0,1 (granger?)
-
 logs=(
-    # 2015-0612-140613,6
-    # 2015-0614-001927,3
-    # 2015-0615-112906,6
-    # 2015-0619-110948,3
-    2015-0622-173700,6
+    2015-0715-113928,6
 )
-traffic=$HOME/data/traffic/fig
+traffic=$NYCTRAFFIC/src
+prediction=$traffic/prediction
+cluster=$traffic/cluster
 
 for i in ${logs[@]}; do
     l=( `sed -e's/,/ /g' <<< $i` )
-    dat=$HOME/traffic/log/${l[0]}/dat
+    dat=$prediction/log/${l[0]}/dat
 
-    for j in $traffic/clusters/${l[1]}/dat-*; do
+    for j in $cluster/log/${l[1]}/dat-*; do
 	k=`cut --delimiter='-' --fields=2 <<< $(basename $j)`
-	d=$traffic/plots/${l[0]}/$k
-	mkdir --parents $d
+	output=`dirname $dat`/$k
+	mkdir --parents $output
 
-	echo ${l[@]} $d
-	./pandas/main-plot.py --data $dat --clusters $j --output $d
+	echo ${l[@]} $output
+	python3 $prediction/plot.py --data $dat --clusters $j --output $output
     done
 done
