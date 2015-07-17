@@ -13,7 +13,7 @@ for i in ${logs[@]}; do
 
     for j in $cluster/log/${l[1]}/dat-*; do
 	k=`cut --delimiter='-' --fields=2 <<< $(basename $j)`
-	output=`dirname $dat`/$k
+	output=`dirname $dat`/fig/$k
 	mkdir --parents $output
 
 	echo ${l[@]} $output
