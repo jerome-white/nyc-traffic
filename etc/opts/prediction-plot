@@ -1,0 +1,7 @@
+prefix,dest,type,default,action,choices
+observation-window,window_obs,int,,,
+prediction-window,window_pred,int,,,
+target-window,window_trgt,int,,,
+data,data,,,,
+clusters,clusters,,,,
+output,output,,,,
