@@ -26,7 +26,11 @@ machines=(
 )
 mtype=classifier
 nycpath=$NYCTRAFFIC/src/prediction
-out=$nycpath/log/`date +%Y-%m%d-%H%M%S`
+out=$nycpath/log/`date +%Y_%m-%d_%H%M`.`hostname`
+if [ -e $out ]; then
+    echo "$out exists" 1>&2
+    exit 1
+fi
 
 mkdir --parents $out
 ( cd log; rm --force current; ln --symbolic `basename $out` current )
