@@ -19,8 +19,8 @@ estfmt() {
 
 unset header
 machines=(
-    # svm
-    bayes
+    svm
+    # bayes
     # forest
     # tree
 )
@@ -32,22 +32,25 @@ mkdir --parents $out
 ( cd log; rm --force current; ln --symbolic `basename $out` current )
 cp $0 $out
 
-for pw in 6; do # `seq 3 3 6`; do
-    for n in 1; do # `seq 0 1`; do
-	echo "[ `date` ] $pw $n" >> $out/trace
+for pwindow in 6; do
+    for neighbors in `seq 0 1`; do
+	for cluster in simple var; do
+	    echo "[ `date` ] $pw $n" >> $out/trace
 	    
-	python3 $nycpath/main.py \
-	    --neighbors $n \
-	    --observation-window 10 \
-	    --prediction-window $pw \
-	    --target-window 5 \
-	    --speed-threshold -0.002 \
-	    --${header}print-header \
-	    --k-folds 12 \
-	    `estfmt $mtype ${machines[@]}`
+	    python3 $nycpath/main.py \
+		    --neighbors $neighbors \
+		    --neighbor-selection $cluster \
+		    --observation-window 10 \
+		    --prediction-window $pwindow \
+		    --target-window 5 \
+		    --speed-threshold -0.002 \
+		    --${header}print-header \
+		    --k-folds 3 \
+		    `estfmt $mtype ${machines[@]}`
 	
-	if [ $? -eq 0 ]; then
-	    header=no-
-	fi
+	    if [ $? -eq 0 ]; then
+		header=no-
+	    fi
+	done
     done
 done > $out/dat 2> $out/log
