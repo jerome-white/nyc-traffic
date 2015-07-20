@@ -53,11 +53,13 @@ def neighbors_(source, levels, conn, ntree=None):
                     continue
 
                 if i in ntree:
-                    ntree[i].lag += lag
+                    element = ntree[i]
+                    node = element.node
+                    lag += element.lag
                 else:
                     node = Node(i, conn)
-                    ntree[i] = Element(node, lag, False)
-
+                    
+                ntree[i] = Element(node, lag, False)
                 node = ntree[i].node
                 n = neighbors_(node, levels - 1, conn, ntree)
                 ntree.update(n)
