@@ -20,6 +20,7 @@ from sklearn.metrics.base import UndefinedMetricWarning
 from lib import data
 from lib import node as nd
 from lib import cpoint as cp
+from lib import cluster as cl
 from lib import aggregator as ag
 from lib.db import DatabaseConnection
 from lib.logger import log
@@ -30,6 +31,11 @@ class Machine:
         self.nid = nid
         self.cli = cli
         self.args = self.cli.args
+
+        self.nhandler = {
+            'simple': cl.SimpleCluster,
+            'var': cl.VARCluster,
+            }
         
         self.metrics_ = []
         self.header_ = [
@@ -44,22 +50,17 @@ class Machine:
         
     def header(self):
         return self.header_ + self.cli.options() + self.metrics()
-
-    def _features(self, nodes, left, aggregator):
-        return []
-    
-    def _label(self, node, left, right):
-        return []
     
     def classify(self):
         observations = []
         window = nd.Window(self.args.window_obs,
                            self.args.window_pred,
                            self.args.window_trgt)
-        
+
         with DatabaseConnection() as conn: 
             source = nd.Node(self.nid, connection=conn)
-            nodes = nd.neighbors(source, self.args.neighbors, conn)
+            cluster = self.nhandler[self.args.nselect]
+            nodes = nd.neighbors(source, self.args.neighbors, cluster, conn)
 
         msg = ', '.join(map(lambda x: ':'.join(map(repr, x)), nodes))
         log.debug('{0}: {1}'.format(source.nid, msg))
@@ -139,8 +140,14 @@ class Machine:
     def classifiers(self):
         return self.__tostr(self.classifiers_)
 
+    def _features(self, nodes, left, aggregator):
+        raise NotImplementedError()
+    
+    def _label(self, node, left, right):
+        raise NotImplementedError()
+    
     def set_probabilities(self, clf, x):
-        return
+        raise NotImplementedError()
 
 class Classifier(Machine):
     def __init__(self, nid, cli):

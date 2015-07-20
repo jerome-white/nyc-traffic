@@ -18,7 +18,6 @@ def getnodes(connection, restrict=True):
         'SELECT id FROM node',
         'WHERE segment IS NOT NULL' if restrict else '',
         'ORDER BY id ASC',
-        # 'LIMIT 1'
     ]
     sql = ' '.join(segments)
     
@@ -32,40 +31,35 @@ def nodegen(args):
         for (i, j) in enumerate(getnodes(conn)):
             yield (i, j, args)
 
-def neighbors_(source, levels, conn, ntree=None):
+def neighbors_(source, levels, cluster, conn, ntree=None):
     if not ntree:
         root = Element(source, 0, True)
         ntree = { source.nid: root }
 
     if levels > 0:
         try:
-            cluster = cl.VARCluster(source.nid)
+            cl = cluster(source.nid, conn)
         except AttributeError as err:
             log.error(err)
             return ntree
 
-        for i in cluster.neighbors:
-            if not (i in ntree and ntree[i].root):
+        for i in cl.neighbors:
+            if i not in tree:
                 try:
-                    lag = cluster.lag(i)
+                    lag = cl.lag(i)
                 except ValueError as err:
                     log.error(err)
                     continue
 
-                if i in ntree:
-                    ntree[i].lag += lag
-                else:
-                    node = Node(i, conn)
-                    ntree[i] = Element(node, lag, False)
-
-                node = ntree[i].node
-                n = neighbors_(node, levels - 1, conn, ntree)
+                node = Node(i, conn)
+                ntree[i] = Element(node, lag, False)
+                n = neighbors_(node, levels - 1, cluster, conn, ntree)
                 ntree.update(n)
                     
     return ntree
             
-def neighbors(source, levels, conn):
-    n = neighbors_(source, levels, conn)
+def neighbors(source, levels, cluster, conn):
+    n = neighbors_(source, levels, cluster, conn)
     for (i, j) in n.items():
         if i != source.nid:
             j.node.align(source, True)
