@@ -20,7 +20,7 @@ def f(*args):
         raise AttributeError('Unrecognized machine type')
 
     results = model.predict(model.classify())
-    if not index:
+    if index == 0:
         results.append(model.header())
     
     return results
@@ -36,8 +36,9 @@ def hextract(results):
 
 with Pool() as pool:
     cargs = cli.CommandLine(cli.optsfile('prediction'))
-    
-    results = list(filter(None, pool.starmap(f, nodegen(cargs))))
+
+    results = pool.starmap(f, nodegen(cargs), 1)
+    results = list(filter(None, results))
     (header, body) = hextract(results)
     
     with CSVWriter(header, delimiter=';') as writer:
