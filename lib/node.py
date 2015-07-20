@@ -51,8 +51,15 @@ def neighbors_(source, levels, cluster, conn, ntree=None):
                     log.error(err)
                     continue
 
-                node = Node(i, conn)
+                if i in ntree:
+                    element = ntree[i]
+                    node = element.node
+                    lag += element.lag
+                else:
+                    node = Node(i, conn)
+                    
                 ntree[i] = Element(node, lag, False)
+                node = ntree[i].node
                 n = neighbors_(node, levels - 1, cluster, conn, ntree)
                 ntree.update(n)
                     
