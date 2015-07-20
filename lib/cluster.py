@@ -8,11 +8,18 @@ from lib import db
 from lib.logger import log
 
 class Cluster:
-    def __init__(self, nid, freq='T'):
+    def __init__(self, nid, connection=None, freq='T'):
         self.nid = nid
-        with db.DatabaseConnection() as conn:
-            self.neighbors = self.__get_neighbors(conn)
-            self.readings = self.__get_readings(self.neighbors, conn, freq)
+
+        close = not connection
+        if close:
+            connection = db.DatabaseConnection().resource
+        
+        self.neighbors = self.__get_neighbors(connection)
+        self.readings = self.__get_readings(self.neighbors, connection, freq)
+            
+        if close:
+            connection.close()
 
     def addlag(self, lag, inclusive=False, delimiter='-'):
         cols = list(self.neighbors)
@@ -65,9 +72,19 @@ class Cluster:
 
         with db.DatabaseCursor(connection) as cursor:
             cursor.execute(sql)
-
             return frozenset([ row['id'] for row in cursor ])
 
+    def lag(self, nid, threshold=0.01):
+        raise NotImplementedError()
+
+class SimpleCluster(Cluster):
+    def __init__(self, nid, maxlags=20):
+        super().__init__(nid)
+
+    def lag(self, nid, threshold=None):
+        node = nd.Node(nid)
+        return node.readings.travel.mean()
+    
 class VARCluster(Cluster):
     def __init__(self, nid, maxlags=20):
         super().__init__(nid)
