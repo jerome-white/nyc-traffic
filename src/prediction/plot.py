@@ -1,11 +1,14 @@
-import os
-
 import numpy as np
 import pandas as pd
+import os.path as path
 import matplotlib.pyplot as pyp
 
 from lib import cli
 from lib import utils
+
+def plotter(fname, data, args):
+    plt = data.plot(**args)
+    utils.mkplot_(plt, fname)
 
 ext_ = '.pdf'
 user = cli.CommandLine(cli.optsfile('prediction-plot'))
@@ -23,8 +26,8 @@ for i in range(vals.ix.ndim):
 # plot the zero/1-level neighbor comparison
 z = pd.merge(zero, one, left_index=True, right_index=True)
 z = z.sort('mean_x', ascending=False)
-fname = os.path.join(user.args.output, 'compare' + ext_)
-fig = z[['mean_x', 'mean_y']]
+fname = path.join(user.args.output, 'compare' + ext_)
+view = z[['mean_x', 'mean_y']]
 args = {
     'figsize': (120, 20),
     'fontsize': 36,
@@ -32,13 +35,12 @@ args = {
     'yerr': z[['std_x', 'std_y']],
     'ylim': (-1, 1),
     }
-plt = fig.plot(**args)
-utils.mkplot_(plt, fname)
+plotter(fname, view, args)
  
 # plot the zero-neighbors in ascending order
 s = zero.sort('mean')#.groupby(['cluster'])
-fname = os.path.join(user.args.output, 'zero' + ext_)
-fig = s['mean']
+fname = path.join(user.args.output, 'zero' + ext_)
+view = s['mean']
 args = {
     'figsize': (40, 100),
     'fontsize': 36,
@@ -46,34 +48,36 @@ args = {
     'xerr': s['std'],
     'xlim': (-1, 1),
     }
-plt = fig.plot(**args)
-plt.get_figure().savefig(fname)
-pyp.close('all')
+plotter(fname, view, args)
 
 # plot the performance difference
-fname = os.path.join(user.args.output, 'diff' + ext_)
-diff = one['mean'] - zero['mean']
-diff.sort('mean', ascending=False)
+fname = path.join(user.args.output, 'diff' + ext_)
+view = one['mean'] - zero['mean']
+view.sort('mean', ascending=False)
 args = {
     'figsize': (100, 20),
     'fontsize': 36,
     'kind': 'bar',
     }
-plt = diff.dropna().plot(**args)
-utils.mkplot_(plt, fname)
+plotter(fname, view.dropna(), args)
 
-exit()
-# XXX to be complete
-
+colors = [ 'DarkBlue', 'DarkGreen' ]
 for i in user.args.clusters:
     cf = pd.DataFrame.from_csv(i)
-    vals = vals.merge(cf, left_index=True, right_index=True)
-    for j in range(vals.ix.ndim):
-        f = 'scatter-' + str(j) + ext_
-        fname = os.path.join(user.args.output, f)
+    view = pd.merge(vals, cf, left_index=True, right_index=True)
 
-        view = vals.loc[[j],'mean']
-        plt = view.plot(kind='scatter', x='cluster', y='mean')
-        utils.mkplot_(plt, fname)
-    
-    vals.drop('cluster', axis=1, inplace=True)
+    view = view.reset_index(level='node', drop=True)
+    view.loc[[1],'cluster'] += 0.5
+
+    f = path.basename(i) + ext_
+    fname = path.join(user.args.output, f)
+
+    ax = None
+    for j in range(view.ix.ndim):
+        v = view.loc[[j]]
+        ax = v.plot(kind='scatter', x='cluster', y='mean',
+                    label=str(j), color=colors[j], ax=ax)
+
+        print(f, j, v['mean'].corr(v['cluster'], method='pearson'))
+    assert(ax)
+    utils.mkplot_(ax, fname)
