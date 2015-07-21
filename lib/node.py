@@ -31,39 +31,39 @@ def nodegen(args):
         for (i, j) in enumerate(getnodes(conn)):
             yield (i, j, args)
 
-def neighbors_(source, levels, cluster, conn, ntree=None):
-    if not ntree:
+def neighbors_(source, levels, cluster, conn, seen=None):
+    if not seen:
         root = Element(source, 0, True)
-        ntree = { source.nid: root }
+        seen = { source.nid: root }
 
     if levels > 0:
         try:
             cl = cluster(source.nid, conn)
         except AttributeError as err:
             log.error(err)
-            return ntree
+            return seen
 
         for i in cl.neighbors:
-            if i not in tree:
+            if i not in seen:
                 try:
                     lag = cl.lag(i)
                 except ValueError as err:
                     log.error(err)
                     continue
 
-                if i in ntree:
-                    element = ntree[i]
+                if i in seen:
+                    element = seen[i]
                     node = element.node
                     lag += element.lag
                 else:
                     node = Node(i, conn)
                     
-                ntree[i] = Element(node, lag, False)
-                node = ntree[i].node
-                n = neighbors_(node, levels - 1, cluster, conn, ntree)
-                ntree.update(n)
+                seen[i] = Element(node, lag, False)
+                node = seen[i].node
+                n = neighbors_(node, levels - 1, cluster, conn, seen)
+                seen.update(n)
                     
-    return ntree
+    return seen
             
 def neighbors(source, levels, cluster, conn):
     n = neighbors_(source, levels, cluster, conn)

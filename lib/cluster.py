@@ -78,16 +78,16 @@ class Cluster:
         raise NotImplementedError()
 
 class SimpleCluster(Cluster):
-    def __init__(self, nid, maxlags=20):
-        super().__init__(nid)
+    def __init__(self, nid, connection=None, freq='T', maxlags=None):
+        super().__init__(nid, connection, freq)
 
     def lag(self, nid, threshold=None):
         node = nd.Node(nid)
         return node.readings.travel.mean()
     
 class VARCluster(Cluster):
-    def __init__(self, nid, maxlags=20):
-        super().__init__(nid)
+    def __init__(self, nid, connection=None, freq='T', maxlags=20):
+        super().__init__(nid, connection, freq)
 
         endog = self.readings.dropna()
         if endog.empty:
