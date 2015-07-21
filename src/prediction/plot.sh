@@ -11,7 +11,7 @@ for i in ${logs[@]}; do
     l=( `sed -e's/,/ /g' <<< $i` )
     dat=$prediction/log/${l[0]}/dat
 
-    cls=( ls $cluster/log/${l[1]}/dat-* )
+    cls=( `ls $cluster/log/${l[1]}/dat-*` )
     output=`dirname $dat`/fig/$k
     mkdir --parents $output
 
