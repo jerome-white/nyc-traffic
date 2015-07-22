@@ -4,4 +4,5 @@ prediction-window,window_pred,int,,,
 target-window,window_trgt,int,,,
 data,data,,,,
 clusters,clusters,,,append,
+filter,gfilter,,,append,neighbors|nselect|aggregator
 output,output,,,,
