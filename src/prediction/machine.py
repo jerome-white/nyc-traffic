@@ -27,10 +27,11 @@ from lib.logger import log
 from lib.csvwriter import CSVWriter
 
 class Machine:
-    def __init__(self, nid, cli):
+    def __init__(self, nid, cli, aggregator):
         self.nid = nid
         self.cli = cli
         self.args = self.cli.args
+        self.aggregator = aggregator
 
         self.nhandler = {
             'simple': cl.SimpleCluster,
@@ -65,14 +66,12 @@ class Machine:
         msg = ', '.join(map(lambda x: ':'.join(map(repr, x)), nodes))
         log.debug('{0}: {1}'.format(source.nid, msg))
         self.cluster = [ (x.node.nid, x.lag) for x in nodes ]
-
-        aggregator = ag.PctChangeAggregator(len(nodes), window.observation)
         
         for (i, j) in source.range(window):
             # log.info('{0}: {1} {2}'.format(self.nid, i[0], j[0]))
             try:
                 label = self._label(source, i, j)
-                features = self._features(nodes, i, aggregator)
+                features = self._features(nodes, i)
                 observations.append(features + label)
             except ValueError as verr:
                 # log.error(verr)
@@ -140,7 +139,7 @@ class Machine:
     def classifiers(self):
         return self.__tostr(self.classifiers_)
 
-    def _features(self, nodes, left, aggregator):
+    def _features(self, nodes, left):
         raise NotImplementedError()
     
     def _label(self, node, left, right):
@@ -150,8 +149,8 @@ class Machine:
         raise NotImplementedError()
 
 class Classifier(Machine):
-    def __init__(self, nid, cli):
-        super().__init__(nid, cli)
+    def __init__(self, nid, cli, aggregator=ag.simple):
+        super().__init__(nid, cli, aggregator)
         
         self.metrics_ = [
             self.confusion_matrix,
@@ -189,7 +188,7 @@ class Classifier(Machine):
 
         return ','.join(map(str, cv))
 
-    def _features(self, nodes, left, aggregator):
+    def _features(self, nodes, left):
         features = []
         
         for n in nodes:
@@ -200,12 +199,7 @@ class Classifier(Machine):
             values = df.speed.ix[left]
             assert(len(values) == self.args.window_obs)
             
-            distilled = aggregator.aggregate(values)
-            # bad = np.count_nonzero(~np.isfinite(distilled))
-            # if bad > 0:
-            #     msg = '{0}|{1}-{2} {3}|{4}'
-            #     msg = msg.format(n.node, left, right, values, distilled)
-            #     log.info(msg)
+            distilled = self.aggregator(values)
             features.extend(distilled)
 
         return features
@@ -231,8 +225,8 @@ class Classifier(Machine):
         return [ int(label) ]
 
 class Estimator(Machine):
-    def __init__(self, nid, cli):
-        super().__init__(nid, cli)
+    def __init__(self, nid, cli, aggregator=ag.simple):
+        super().__init__(nid, cli, aggregator)
         
         self.metrics_ = [
             sklearn.metrics.explained_variance_score,

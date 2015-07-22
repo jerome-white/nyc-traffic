@@ -1,9 +1,11 @@
 import os
-import machine
+
+import machine as m
 
 from multiprocessing import Pool
 
 from lib import cli
+from lib import aggregator as ag
 from lib.node import nodegen
 from lib.logger import log
 from lib.csvwriter import CSVWriter 
@@ -11,14 +13,22 @@ from lib.csvwriter import CSVWriter
 def f(*args):
     (index, node, cargs) = args
     log.info('node: {0}'.format(node))
-    
-    if cargs.args.model == 'classification':
-        model = machine.Classifier(node, cargs)
-    elif cargs.args.model == 'estimation':
-        model = machine.Estimator(node, cargs)
-    else:
-        raise AttributeError('Unrecognized machine type')
 
+    machine_ = {
+        'classification': m.Classifier,
+        'estimation': m.Estimator,
+        }
+    machine = machine_[cargs.args.model]
+    
+    aggregator_ = {
+        'simple': ag.simple,
+        'change': ag.change,
+        'average': ag.average,
+        'difference': ag.difference,
+        }
+    aggregator = aggregator_[cargs.args.aggregator]
+
+    model = machine(node, cargs, aggregator)
     results = model.predict(model.classify())
     if index == 0:
         results.append(model.header())

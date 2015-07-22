@@ -5,6 +5,7 @@ target-window,window_trgt,int,5,,
 k-folds,folds,int,4,,
 neighbors,neighbors,int,0,,
 neighbor-selection,nselect,,simple,,simple|var
+aggregator,aggregator,,simple,,simple|change|average|difference
 classifier,classifier,,,append,svm|bayes|forest|boost|tree
 model,model,,,,classification|estimation
 print-header,header,,,store_true,

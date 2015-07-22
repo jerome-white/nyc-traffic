@@ -19,9 +19,9 @@ estfmt() {
 
 unset header
 machines=(
-    svm
+    # svm
     # bayes
-    # forest
+    forest
     # tree
 )
 mtype=classifier
@@ -37,20 +37,21 @@ mkdir --parents $out
 cp $0 $out
 
 for pwindow in 6; do
-    for neighbors in `seq 0 1`; do
-	for cluster in simple var; do
+    for neighbors in 0 1; do
+	for cluster in var; do
 	    echo "[ `date` ] $pw $n" >> $out/trace
 	    
 	    python3 $nycpath/main.py \
-		    --neighbors $neighbors \
-		    --neighbor-selection $cluster \
-		    --observation-window 10 \
-		    --prediction-window $pwindow \
-		    --target-window 5 \
-		    --speed-threshold -0.002 \
-		    --${header}print-header \
-		    --k-folds 3 \
-		    `estfmt $mtype ${machines[@]}`
+		--neighbors $neighbors \
+		--neighbor-selection $cluster \
+		--observation-window 10 \
+		--prediction-window $pwindow \
+		--target-window 5 \
+		--speed-threshold -0.002 \
+		--${header}print-header \
+		--k-folds 10 \
+		--aggregator difference \
+		`estfmt $mtype ${machines[@]}`
 	
 	    if [ $? -eq 0 ]; then
 		header=no-
