@@ -7,7 +7,6 @@ from collections import namedtuple
 from statsmodels.tsa import stattools as st
 
 from lib import db
-from lib import cluster as cl
 from lib.logger import log
 
 Element = namedtuple('Element', [ 'node', 'lag', 'root' ])
@@ -146,14 +145,17 @@ class Node:
         sql = sql.format(self.nid)
         with db.DatabaseCursor(connection) as cursor:
             cursor.execute(sql)
+            
             return frozenset([ row['id'] for row in cursor ])
         
     def range(self, window, bound=True):
         idx = self.readings.index
+        
         for (i, _) in enumerate(idx):
             j = i + window.observation
             k = j + window.prediction
             l = k + window.target
+            
             if bound and l > idx.size:
                 raise StopIteration
             

@@ -44,15 +44,22 @@ def hextract(results):
         
     return (header, results)
 
+log.info('phase 1')
+
 with Pool() as pool:
     cargs = cli.CommandLine(cli.optsfile('prediction'))
 
     results = pool.starmap(f, nodegen(cargs), 1)
-    results = list(filter(None, results))
-    (header, body) = hextract(results)
+
+log.info('phase 2')
+
+results = list(filter(None, results))
+(header, body) = hextract(results)
     
-    with CSVWriter(header, delimiter=';') as writer:
-        if cargs.args.header:
-            writer.writeheader()
-        for i in body:
-            writer.writerows(i)
+with CSVWriter(header, delimiter=';') as writer:
+    if cargs.args.header:
+        writer.writeheader()
+    for i in body:
+        writer.writerows(i)
+        
+log.info('phase 3')

@@ -35,10 +35,11 @@ fi
 mkdir --parents $out
 ( cd log; rm --force current; ln --symbolic `basename $out` current )
 cp $0 $out
+cp $NYCTRAFFIC/etc/opts/prediction $out
 
 for pwindow in 6; do
-    for neighbors in 0 1; do
-	for cluster in var; do
+    for neighbors in 1; do
+	for cluster in simple var; do
 	    echo "[ `date` ] $pw $n" >> $out/trace
 	    
 	    python3 $nycpath/main.py \
@@ -50,7 +51,7 @@ for pwindow in 6; do
 		--speed-threshold -0.002 \
 		--${header}print-header \
 		--k-folds 10 \
-		--aggregator difference \
+		--aggregator simple \
 		`estfmt $mtype ${machines[@]}`
 	
 	    if [ $? -eq 0 ]; then
