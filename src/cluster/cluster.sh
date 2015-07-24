@@ -1,21 +1,24 @@
 #!/bin/bash
 
-for i in 3; do
-    dir=data/fig/clusters/$i
+pth=$NYCTRAFFIC/src/cluster
+mkdir --parents $pth/log
+
+for pwindow in 3; do
+    dir=$pth/log/$pwindow
+    mkdir --parents $dir
+
     pkl=$dir/observations.pkl
 
-    mkdir --parents $dir
-    ./pandas/cluster.py \
-	--observation-window 10 \
-	--prediction-window $i \
-	--target-window 5 \
-	--speed-threshold -0.002 \
-	--clusters 3 \
-	--fig-directory $dir \
-	--pickle $pkl > \
-	/dev/null
+    python3 $pth/cluster.py \
+    	--observation-window 10 \
+    	--prediction-window $pwindow \
+    	--target-window 5 \
+    	--speed-threshold -0.002 \
+    	--clusters 0 \
+    	--fig-directory $dir \
+    	--pickle $pkl
 
-    for j in `seq 2 7`; do
-	./pandas/cluster.py --resume $pkl --clusters $j > $dir/dat-$j
+    for j in `seq 2 9`; do
+    	python3 $pth/cluster.py --resume $pkl --clusters $j > $dir/dat-$j
     done
-done
+done &> $pth/log/log
