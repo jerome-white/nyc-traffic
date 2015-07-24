@@ -8,7 +8,7 @@ toopts() {
 }
 
 traffic=$NYCTRAFFIC/src
-while getopts "l:f:" OPTION; do
+while getopts "l:f:h" OPTION; do
     case $OPTION in
 	l) logs=( ${logs[@]} $OPTARG ) ;;
 	f) filters=( ${filters[@]} $OPTARG ) ;;

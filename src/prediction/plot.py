@@ -15,19 +15,19 @@ ext_ = '.pdf'
 user = cli.CommandLine(cli.optsfile('prediction-plot'))
 
 df = pd.DataFrame.from_csv(user.args.data, sep=';', index_col=None)
-df = df.loc[df['confusion_matrx'] != np.nan]
+df = df.loc[df['confusion_matrix'] != np.nan]
 grouped = df.groupby(user.args.gfilter + ['node'])['matthews_corrcoef']
 vals = grouped.agg([np.mean, np.std])
 
-args = { 'level': user.args.gfilter, 'drop': True }
+lst = []
 for i in vals.index.levels[:-1]:
-    splt = [ vals.loc[x].reset_index(**args) for x in i ]
-(zero, one) = splt
+    lst.extend([ vals.loc[x,] for x in i ])
+(zero, one) = lst # XXX this assumes two dimensions!
 
 #
 # plot a comparison between the filters
 #
-z = pd.merge(zero, one, left_index=True, right_index=True)
+z = pd.merge(zero, one, how='outer', left_index=True, right_index=True)
 z = z.sort('mean_x', ascending=False)
 fname = path.join(user.args.plotdir, 'compare' + ext_)
 view = z[['mean_x', 'mean_y']]
