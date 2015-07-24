@@ -12,6 +12,9 @@ from lib.logger import log
 Element = namedtuple('Element', [ 'node', 'lag', 'root' ])
 Window = namedtuple('Window', [ 'observation', 'prediction', 'target' ])
 
+def winsum(window):
+    return window.observation + window.prediction + window.target
+
 def getnodes(connection, restrict=True):
     segments = [
         'SELECT id FROM node',
