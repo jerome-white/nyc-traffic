@@ -24,7 +24,6 @@ from lib import cluster as cl
 from lib import aggregator as ag
 from lib.db import DatabaseConnection
 from lib.logger import log
-from lib.csvwriter import CSVWriter
 
 class Machine:
     def __init__(self, nid, cli, aggregator):
@@ -57,25 +56,36 @@ class Machine:
         window = nd.Window(self.args.window_obs,
                            self.args.window_pred,
                            self.args.window_trgt)
-
+        #
+        # create the node and get its neighbors
+        #
         with DatabaseConnection() as conn: 
             source = nd.Node(self.nid, connection=conn)
             cluster = self.nhandler[self.args.nselect]
             nodes = nd.neighbors(source, self.args.neighbors, cluster, conn)
-
+            
         msg = ', '.join(map(lambda x: ':'.join(map(repr, x)), nodes))
-        log.debug('{0}: {1}'.format(source.nid, msg))
+        log.debug('neighbors: {0}'.format(msg))
+
+        #
+        # note the "cluster" (a node and its neighbors) for later
+        # accounting
+        #
         self.cluster = [ (x.node.nid, x.lag) for x in nodes ]
-        
+
+        #
+        # Build the observation matrix by looping over the source
+        # nodes time periods
+        #
         for (i, j) in source.range(window):
-            # log.info('{0}: {1} {2}'.format(self.nid, i[0], j[0]))
             try:
                 label = self._label(source, i, j)
                 features = self._features(nodes, i)
                 observations.append(features + label)
             except ValueError as verr:
-                # log.error(verr)
                 pass
+            
+        log.debug('observations: {0}'.format(len(observations)))
                 
         return observations
         
@@ -93,7 +103,10 @@ class Machine:
             for (j, k) in enumerate(data.kfold(observations, self.args.folds)):
                 msg = '{0}: prediction {1} of {2}'
                 log.info(msg.format(ptr.__name__, j, self.args.folds))
-                              
+
+                #
+                # train and fit the model
+                #
                 (x_train, x_test, y_train, y_test) = k
                 try:
                     clf.fit(x_train, y_train)
@@ -106,18 +119,25 @@ class Machine:
                     continue
             
                 self.set_probabilities(clf, x_test)
-            
+
+                #
+                # add accounting information to result row
+                #
                 lst = [
                     ptr.__name__,  # implementation
                     x_train.shape, # shape
                     self.nid,      # node
                     j,             # (k)fold
                     self.cluster,  # cluster
-                ]
+                    ]
                 assert(len(lst) == len(self.header_))
                 d = dict(zip(self.header_, lst))
                 d.update(self.args.__dict__)
-        
+                
+                #
+                # run all of the desired metrics and add them to the
+                # result row
+                #
                 with warnings.catch_warnings():
                     warnings.filterwarnings('error')
                     for f in self.metrics_:

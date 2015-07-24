@@ -5,4 +5,5 @@ target-window,window_trgt,int,,,
 data,data,,,,
 clusters,clusters,,,append,
 filter,gfilter,,,append,neighbors|nselect|aggregator
-output,output,,,,
+plot-directory,plotdir,,,,
+stats-file,stfile,,,,

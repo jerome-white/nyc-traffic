@@ -5,6 +5,7 @@ import matplotlib.pyplot as pyp
 
 from lib import cli
 from lib import utils
+from lib.csvwriter import CSVWriter
 
 def plotter(fname, data, args):
     plt = data.plot(**args)
@@ -13,12 +14,13 @@ def plotter(fname, data, args):
 ext_ = '.pdf'
 user = cli.CommandLine(cli.optsfile('prediction-plot'))
 
-df = pd.DataFrame.from_csv(user.args.data, sep=';', index_col=None).dropna()
+df = pd.DataFrame.from_csv(user.args.data, sep=';', index_col=None)
+df = df.loc[df['confusion_matrx'] != np.nan]
 grouped = df.groupby(user.args.gfilter + ['node'])['matthews_corrcoef']
 vals = grouped.agg([np.mean, np.std])
 
+args = { 'level': user.args.gfilter, 'drop': True }
 for i in vals.index.levels[:-1]:
-    args = { 'level': user.args.gfilter, 'drop': True }
     splt = [ vals.loc[x].reset_index(**args) for x in i ]
 (zero, one) = splt
 
@@ -27,7 +29,7 @@ for i in vals.index.levels[:-1]:
 #
 z = pd.merge(zero, one, left_index=True, right_index=True)
 z = z.sort('mean_x', ascending=False)
-fname = path.join(user.args.output, 'compare' + ext_)
+fname = path.join(user.args.plotdir, 'compare' + ext_)
 view = z[['mean_x', 'mean_y']]
 args = {
     'figsize': (120, 20),
@@ -42,7 +44,7 @@ plotter(fname, view, args)
 # plot the zero-neighbors in ascending order
 #
 # zsrt = zero.sort('mean')#.groupby(['cluster'])
-# fname = path.join(user.args.output, 'zero' + ext_)
+# fname = path.join(user.args.plotdir, 'zero' + ext_)
 # view = zsrt['mean']
 # args = {
 #     'figsize': (40, 100),
@@ -56,7 +58,7 @@ plotter(fname, view, args)
 #
 # plot the performance difference
 #
-fname = path.join(user.args.output, 'diff' + ext_)
+fname = path.join(user.args.plotdir, 'diff' + ext_)
 view = one['mean'] - zero['mean']
 view.sort('mean', ascending=False)
 args = {
@@ -66,32 +68,37 @@ args = {
     }
 plotter(fname, view.dropna(), args)
 
-colors = [ 'DarkBlue', 'DarkGreen' ]
-for i in user.args.clusters:
-    cf = pd.DataFrame.from_csv(i)
-    view = pd.merge(vals, cf, left_index=True, right_index=True)
+colors = ['DarkBlue', 'DarkGreen']
+csvheader = ['group', 'filter', 'correlation']
+with CSVWriter(csvheader, user.args.stfile) as csv:
+    csv.writeheader()
+    for i in user.args.clusters:
+        cf = pd.DataFrame.from_csv(i)
+        view = pd.merge(vals, cf, left_index=True, right_index=True)
 
-    view.reset_index(level='node', drop=True, inplace=True)
-    idxs = view.index.unique()
-    for (j, k) in enumerate(idxs):
-        view.loc[k,'cluster'] += j / len(idxs)
+        view.reset_index(level='node', drop=True, inplace=True)
+        idxs = view.index.unique()
+        for (j, k) in enumerate(idxs):
+            view.loc[k, 'cluster'] += j / len(idxs)
 
-    f = path.basename(i) + ext_
-    fname = path.join(user.args.output, f)
+        f = path.basename(i) + ext_
+        fname = path.join(user.args.plotdir, f)
 
-    ax = None
-    args = {
-        'kind': 'scatter',
-        'x': 'cluster',
-        'y': 'mean',
-        'xlim': (view.cluster.min(), view.cluster.max()),
-        'ax': ax,
-        }
-    assert(len(idxs) == len(colors))
-    for (j, k) in zip(idxs, colors):
-        v = view.loc[j]
-        ax = v.plot(label=str(j), color=k, **args)
-
-        print(f, j, v['mean'].corr(v['cluster'], method='pearson'))
-    assert(ax)
-    utils.mkplot_(ax, fname)
+        ax = None
+        args = {
+            'kind': 'scatter',
+            'x': 'cluster',
+            'y': 'mean',
+            'xlim': (view.cluster.min(), view.cluster.max()),
+            'ax': ax,
+            }
+        assert(len(idxs) == len(colors))
+        
+        for (j, k) in zip(idxs, colors):
+            v = view.loc[j]
+            ax = v.plot(label=str(j), color=k, **args)
+            
+            row = [ f, j, v['mean'].corr(v['cluster'], method='pearson') ]
+            csv.writerow(dict(zip(csvheader, row)))
+        assert(ax)
+        utils.mkplot_(ax, fname)

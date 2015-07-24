@@ -5,6 +5,7 @@ import statsmodels.tsa.vector_ar.var_model as vm
 from numpy.linalg import LinAlgError
 
 from lib import db
+from lib import node as nd
 from lib.logger import log
 
 class Cluster:
@@ -72,9 +73,13 @@ class Cluster:
 
         with db.DatabaseCursor(connection) as cursor:
             cursor.execute(sql)
+            
             return frozenset([ row['id'] for row in cursor ])
 
     def lag(self, nid, threshold=0.01):
+        '''
+        Should return an integer
+        '''
         raise NotImplementedError()
 
 class SimpleCluster(Cluster):
@@ -83,7 +88,8 @@ class SimpleCluster(Cluster):
 
     def lag(self, nid, threshold=None):
         node = nd.Node(nid)
-        return node.readings.travel.mean()
+        
+        return round(node.readings.travel.mean())
     
 class VARCluster(Cluster):
     def __init__(self, nid, connection=None, freq='T', maxlags=20):

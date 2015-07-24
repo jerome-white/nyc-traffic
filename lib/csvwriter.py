@@ -11,5 +11,6 @@ class CSVWriter:
             self.fp.close()
         
     def __init__(self, fieldnames, fname=None, delimiter=','):
+        self.fieldnames = fieldnames
         self.fp = open(fname, mode='w') if fname else sys.stdout
-        self.writer = DictWriter(self.fp, fieldnames, delimiter=delimiter)
+        self.writer = DictWriter(self.fp, self.fieldnames, delimiter=delimiter)
