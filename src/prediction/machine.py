@@ -43,7 +43,6 @@ class Machine:
             'shape',
             'node',
             'kfold',
-            'cluster',
             ]
         self.classifiers_ = {}
         self.probs = None
@@ -64,15 +63,6 @@ class Machine:
             cluster = self.nhandler[self.args.nselect]
             nodes = nd.neighbors(source, self.args.neighbors, cluster, conn)
             
-        msg = ', '.join(map(lambda x: ':'.join(map(repr, x)), nodes))
-        log.debug('neighbors: {0}'.format(msg))
-
-        #
-        # note the "cluster" (a node and its neighbors) for later
-        # accounting
-        #
-        self.cluster = [ (x.node.nid, x.lag) for x in nodes ]
-
         #
         # Build the observation matrix by looping over the source
         # nodes time periods
@@ -128,7 +118,6 @@ class Machine:
                     x_train.shape, # shape
                     self.nid,      # node
                     j,             # (k)fold
-                    self.cluster,  # cluster
                     ]
                 assert(len(lst) == len(self.header_))
                 d = dict(zip(self.header_, lst))
@@ -211,14 +200,9 @@ class Classifier(Machine):
     def _features(self, nodes, left):
         features = []
         
-        for n in nodes:
-            (df, lag) = (n.node.readings, n.lag)
-            # lag = 0 if n.root else df.travel.ix[left].mean()
-            if lag > 0:
-                df = df.shift(lag)
-            values = df.speed.ix[left]
+        for i in nodes:
+            values = i.readings.speed.ix[left]
             assert(len(values) == self.args.window_obs)
-            
             distilled = self.aggregator(values)
             features.extend(distilled)
 

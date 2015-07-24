@@ -64,13 +64,19 @@ def neighbors_(source, levels, cluster, conn, seen=None):
                     
     return seen
             
-def neighbors(source, levels, cluster, conn):
-    n = neighbors_(source, levels, cluster, conn)
-    for (i, j) in n.items():
-        if i != source.nid:
-            j.node.align(source, True)
+def neighbors(source, levels, cluster, conn, align_and_shift=True):
+    elements = neighbors_(source, levels, cluster, conn).values()
+    
+    msg = ', '.join(map(lambda x: ':'.join(map(repr, x)), elements))
+    log.debug('neighbors: {0}'.format(msg))
 
-    return n.values()
+    if align_and_shift:
+        for i in elements:
+            if not i.root:
+                i.node.readings.shift(i.lag)
+                i.node.align(source, True)
+
+    return [ x.node for x in elements ]
 
 def nacount(data, col='speed'):
     return data[col].isnull().sum()
