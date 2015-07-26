@@ -33,8 +33,9 @@ class Machine:
         self.aggregator = aggregator
 
         self.nhandler = {
-            'simple': cl.SimpleCluster,
+            'simple': cl.Cluster,
             'var': cl.VARCluster,
+            'hybrid': cl.HybridCluster,
             }
         
         self.metrics_ = []

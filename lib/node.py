@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import datetime as dt
+import scipy.constants as constant
 
 from tempfile import NamedTemporaryFile
 from collections import namedtuple
@@ -44,26 +45,19 @@ def neighbors_(source, levels, cluster, conn, seen=None):
         except AttributeError as err:
             log.error(err)
             return seen
+        
+        existing_lag = seen[source.nid].lag
+        for i in cl.neighbors.difference(seen.keys()):
+            try:
+                lag = cl.lag(i) + existing_lag
+            except ValueError as err:
+                log.error(err)
+                continue
 
-        for i in cl.neighbors:
-            if i not in seen:
-                try:
-                    lag = cl.lag(i)
-                except ValueError as err:
-                    log.error(err)
-                    continue
-
-                if i in seen:
-                    element = seen[i]
-                    node = element.node
-                    lag += element.lag
-                else:
-                    node = Node(i, conn)
-                    
-                seen[i] = Element(node, lag, False)
-                node = seen[i].node
-                n = neighbors_(node, levels - 1, cluster, conn, seen)
-                seen.update(n)
+            node = Node(i, conn)
+            seen[i] = Element(node, lag, False)
+            n = neighbors_(node, levels - 1, cluster, conn, seen)
+            seen.update(n)
                     
     return seen
             
@@ -135,11 +129,11 @@ class Node:
                     tm = i.strftime('%Y-%m-%d %H:%M:%S')
                     option.append("as_of {1}= '{0}'".format(j, tm))
                     
-        sql = ('SELECT as_of, speed, travel_time / 60 AS travel ' +
+        sql = ('SELECT as_of, speed, travel_time / {2} AS travel ' +
                'FROM reading ' +
                'WHERE node = {0}{1} ' +
                'ORDER BY as_of ASC')
-        sql = sql.format(self.nid, ' AND '.join(option))
+        sql = sql.format(self.nid, ' AND '.join(option), constant.minute)
         
         data = pd.read_sql_query(sql, con=connection, index_col='as_of')
         data.columns = [ 'speed', 'travel' ]

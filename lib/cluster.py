@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import scipy.constants as constant
 import statsmodels.tsa.vector_ar.var_model as vm
 
 from numpy.linalg import LinAlgError
@@ -77,19 +78,17 @@ class Cluster:
             return frozenset([ row['id'] for row in cursor ])
 
     def lag(self, nid, threshold=0.01):
-        '''
-        Should return an integer
-        '''
-        raise NotImplementedError()
-
-class SimpleCluster(Cluster):
-    def __init__(self, nid, connection=None, freq='T', maxlags=None):
-        super().__init__(nid, connection, freq)
-
-    def lag(self, nid, threshold=None):
-        node = nd.Node(nid)
+        sql = ('SELECT ROUND(AVG(travel_time) / {0}) AS lag ' +
+               'FROM reading ' +
+               'WHERE node = {1}')
+        sql = sql.format(constant.minute, self.nid)
         
-        return round(node.readings.travel.mean())
+        with db.DatabaseConnection() as connection:
+            with db.DatabaseCursor(connection) as cursor:
+                cursor.execute(sql)
+                row = cursor.fetchone()
+
+                return row['lag']
     
 class VARCluster(Cluster):
     def __init__(self, nid, connection=None, freq='T', maxlags=20):
@@ -115,3 +114,15 @@ class VARCluster(Cluster):
             raise ValueError('Invalid: {0} {1}'.format(incoming, outgoing))
 
         return np.argmax(vals[0])
+
+class HybridCluster(VARCluster):
+    def __init__(self, nid, connection=None, freq='T', maxlags=20):
+        super().__init__(nid, connection, freq, maxlags)
+
+    def lag(self, nid, threshold=0.01):
+        super().lag(nid, threshold)
+
+        # Getting to this point means VARCluster's lag didn't raise an
+        # exception. "Linearization" then returns Cluster's lag
+        
+        return super(VARCluster, self).lag(nid, threshold)
