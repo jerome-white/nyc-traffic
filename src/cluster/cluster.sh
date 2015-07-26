@@ -3,7 +3,7 @@
 pth=$NYCTRAFFIC/src/cluster
 mkdir --parents $pth/log
 
-for pwindow in 3; do
+for pwindow in `seq 3 3 12`; do
     dir=$pth/log/$pwindow
     mkdir --parents $dir
 

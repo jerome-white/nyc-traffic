@@ -34,8 +34,8 @@ def g(df, *args):
 def f(*args):
     (index, nid, opts) = args
 
-    minutes_per_day = round(constant.day / constant.minute)
-    totals = OrderedDict(zip(range(minutes_per_day), [0] * minutes_per_day))
+    oneday = round(constant.day / constant.minute)
+    totals = OrderedDict(zip(range(oneday), [0] * oneday))
     
     log.info('{0} create'.format(nid))
 
@@ -58,18 +58,19 @@ def f(*args):
 
         if opts.figures:
             log.info('{0} plot'.format(nid))
-    
-            df = pd.Series(totals)
+
+            idx = pd.date_range(start='12:00', periods=oneday, freq='T')
+            df = pd.Series(data=totals, index=idx)
             elements = [
                 [ '} |', str(node) ],
                 [ '}', window.observation ],
                 [ '}', window.prediction ],
                 [ '}', window.target ],
-            ]
-            fname = utils.mkfname(opts.figures, node.nid, 'pdf')
+                ]
+            fname = utils.mkfname(opts.figures, node.nid)
             title = utils.mktitle(elements)
         
-            utils.mkplot(df, fname, title, True)
+            utils.mkplot(df, fname, title, False, kind='bar')
 
     return list(totals.values())
 

@@ -6,7 +6,7 @@ def mkplot_(plot, fname):
     plot.get_figure().savefig(fname)
     plt.close('all')
 
-def mkplot(frame, fname, heading, ynorm=False):
+def mkplot(frame, fname, heading, ynorm=False, **kwargs):
     opts = {
         'grid': True,
         'kind': 'line',
@@ -17,11 +17,13 @@ def mkplot(frame, fname, heading, ynorm=False):
         }
     if ynorm:
         opts['ylim'] = (0, 1)
+    if kwargs:
+        opts.update(kwargs)
 
     mkplot_(frame.plot(**opts), fname)
     
-def mkfname(path, node, extension='png'):
-    return os.path.join(path, '{0:03d}.{1}'.format(node, extension))
+def mkfname(path, nid, extension='pdf'):
+    return os.path.join(path, '{0:03d}.{1}'.format(nid, extension))
     
 def mktitle(elements):
     (fmtstr, fmtlst) = ([], [])
