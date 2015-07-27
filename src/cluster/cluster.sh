@@ -15,10 +15,13 @@ for pwindow in `seq 3 3 12`; do
     	--target-window 5 \
     	--speed-threshold -0.002 \
     	--clusters 0 \
-    	--fig-directory $dir \
     	--pickle $pkl
 
     for j in `seq 2 9`; do
-    	python3 $pth/cluster.py --resume $pkl --clusters $j > $dir/dat-$j
+    	python3 $pth/cluster.py \
+		--resume $pkl \
+		--fig-directory $dir \
+		--clusters $j > \
+		$dir/dat-$j
     done
 done &> $pth/log/log

@@ -3,9 +3,9 @@ import pickle
 
 import numpy as np
 import pandas as pd
+import collections as coll
 import scipy.constants as constant
 
-from collections import OrderedDict
 from multiprocessing import Pool
 from sklearn.cluster import KMeans
 
@@ -18,9 +18,11 @@ from lib.db import DatabaseConnection
 from lib.logger import log
 from lib.csvwriter import CSVWriter
 
+Result = coll.namedtuple('Result', [ 'nid', 'tally' ])
+
 def g(df, *args):
     assert(type(df) == np.ndarray)
-    
+
     (window, threshold) = args
 
     # left = df.head(window.observation).mean()
@@ -32,57 +34,47 @@ def g(df, *args):
     return cp.changed(window.prediction, left, right, threshold)
     
 def f(*args):
-    (index, nid, opts) = args
-
-    oneday = round(constant.day / constant.minute)
-    totals = OrderedDict(zip(range(oneday), [0] * oneday))
+    (index, nid, (window, oneday, threshold)) = args
     
     log.info('{0} create'.format(nid))
 
     node = nd.Node(nid)
-    window = nd.Window(opts.window_obs, opts.window_pred, opts.window_trgt)
     winlen = nd.winsum(window)
 
     log.info('{0} apply'.format(nid))
 
     df = pd.rolling_apply(node.readings.speed, winlen, g, min_periods=winlen,
-                          center=True, args=[ window, opts.threshold ])
+                          center=True, args=[ window, threshold ])
     df.dropna(inplace=True)
-    if not df.empty:
-        log.info('{0} aggregate'.format(nid))
+
+    msg = '{0} aggregate'.format(nid)
+    if df.empty:
+        log.info(msg + '-')
+        return None
     
-        for i in df.index:
-            key = cp.bucket(i)
-            assert(key in totals)
-            totals[key] += df.ix[i]
+    log.info(msg + '+')
+    
+    totals = coll.OrderedDict(zip(range(oneday), [0] * oneday))
+    for i in df.index:
+        key = cp.bucket(i)
+        assert(key in totals)
+        totals[key] += df.ix[i]
 
-        if opts.figures:
-            log.info('{0} plot'.format(nid))
-
-            idx = pd.date_range(start='12:00', periods=oneday, freq='T')
-            df = pd.Series(data=totals, index=idx)
-            elements = [
-                [ '} |', str(node) ],
-                [ '}', window.observation ],
-                [ '}', window.prediction ],
-                [ '}', window.target ],
-                ]
-            fname = utils.mkfname(opts.figures, node.nid)
-            title = utils.mktitle(elements)
-        
-            utils.mkplot(df, fname, title, False, kind='bar')
-
-    return list(totals.values())
+    return Result(nid, list(totals.values()))
 
 cargs = cli.CommandLine(cli.optsfile('chgpt'))
 args = cargs.args
+
+oneday = round(constant.day / constant.minute)
+window = nd.Window(args.window_obs, args.window_pred, args.window_trgt)
 
 if args.resume:
     with open(args.resume, mode='rb') as fp:
         observations = pickle.load(fp)
 else:
+    opts = [ window, oneday, args.threshold ]
     with Pool() as pool:
-        observations = pool.starmap(f, nd.nodegen(args))
+        observations = pool.starmap(f, nd.nodegen(opts))
         observations = list(filter(None, observations))
         assert(observations)
 
@@ -90,8 +82,25 @@ else:
         with open(args.pickle, mode='wb') as fp:
             pickle.dump(observations, fp)
 
+if args.figures:
+    for (nid, tally) in observations:
+        assert(len(tally) == oneday)
+        idx = pd.date_range(start='12:00', periods=oneday, freq='T')
+        df = pd.Series(data=tally, index=idx)
+        elements = [
+            [ '} |', str(nid) ],
+            [ '}', window.observation ],
+            [ '}', window.prediction ],
+            [ '}', window.target ],
+        ]
+        fname = utils.mkfname(args.figures, nid)
+        title = utils.mktitle(elements)
+            
+        utils.mkplot(df, fname, title, False, figsize=(12, 8))
+
 if args.clusters > 0:
-    (features, labels) = data.cleanse(observations)
+    dlist = [ x.tally for x in observations ]
+    (features, labels) = data.cleanse(dlist)
     kmeans = KMeans(n_clusters=args.clusters)
     kmeans.fit(features)
 

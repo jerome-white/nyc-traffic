@@ -11,7 +11,8 @@ from lib.logger import log
 from lib.csvwriter import CSVWriter 
 
 def f(*args):
-    (index, node, cargs) = args
+    (index, node, (cargs,)) = args
+    
     log.info('node: {0}'.format(node))
 
     machine_ = {
@@ -48,8 +49,7 @@ log.info('phase 1')
 
 with Pool() as pool:
     cargs = cli.CommandLine(cli.optsfile('prediction'))
-
-    results = pool.starmap(f, nodegen(cargs), 1)
+    results = pool.starmap(f, nodegen([ cargs ]), 1)
 
 log.info('phase 2')
 

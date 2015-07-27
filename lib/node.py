@@ -32,7 +32,7 @@ def getnodes(connection, restrict=True):
 def nodegen(args):
     with db.DatabaseConnection() as conn:
         for (i, j) in enumerate(getnodes(conn)):
-            yield (i, j, args)
+            yield (i, j, tuple(args))
 
 def neighbors_(source, levels, cluster, conn, seen=None):
     if not seen:
