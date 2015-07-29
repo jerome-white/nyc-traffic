@@ -3,7 +3,7 @@ import os
 import matplotlib.pyplot as plt
 
 def mkplot_(plot, fname):
-    plot.get_figure().savefig(fname)
+    plot.get_figure().savefig(fname, bbox_inches='tight')
     plt.close('all')
 
 def mkplot(frame, fname, heading, ynorm=False, **kwargs):

@@ -3,6 +3,8 @@ import pandas as pd
 import os.path as path
 import matplotlib.pyplot as pyp
 
+from scipy import stats
+
 from lib import cli
 from lib import utils
 from lib.csvwriter import CSVWriter
@@ -14,31 +16,26 @@ def plotter(fname, data, args):
 ext_ = '.pdf'
 user = cli.CommandLine(cli.optsfile('prediction-plot'))
 
-df = pd.DataFrame.from_csv(user.args.data, sep=';', index_col=None)
-df = df.loc[df['confusion_matrix'] != np.nan]
-grouped = df.groupby(user.args.gfilter + ['node'])['matthews_corrcoef']
-vals = grouped.agg([np.mean, np.std])
-
-lst = []
-for i in vals.index.levels[:-1]:
-    lst.extend([ vals.loc[x,] for x in i ])
-(zero, one) = lst # XXX this assumes two dimensions!
+vals = pd.DataFrame.from_csv(user.args.data, sep=';', index_col=None)
+assert(all([ x in vals.columns for x in user.args.gfilter]))
+    
+df = vals.loc[vals['confusion_matrix'] != np.nan]
+grouped = vals.groupby(user.args.gfilter + ['node'])['matthews_corrcoef']
+df = grouped.agg([np.mean, stats.sem]).unstack(0)
 
 #
 # plot a comparison between the filters
 #
-z = pd.merge(zero, one, how='outer', left_index=True, right_index=True)
-z = z.sort('mean_x', ascending=False)
 fname = path.join(user.args.plotdir, 'compare' + ext_)
-view = z[['mean_x', 'mean_y']]
+df = df.sort([('mean', df['mean'].columns[0])], ascending=False)
 args = {
-    'figsize': (120, 20),
-    'fontsize': 36,
+    'figsize': (400, 40),
+    'fontsize': 96,
     'kind': 'bar',
-    'yerr': z[['std_x', 'std_y']],
-    'ylim': (-1, 1),
+    'yerr': df['sem'],
+    'ylim': (0, 1),
     }
-plotter(fname, view, args)
+plotter(fname, df['mean'], args)
 
 #
 # plot the zero-neighbors in ascending order
@@ -58,23 +55,25 @@ plotter(fname, view, args)
 #
 # plot the performance difference
 #
-fname = path.join(user.args.plotdir, 'diff' + ext_)
-view = one['mean'] - zero['mean']
-view.sort('mean', ascending=False)
-args = {
-    'figsize': (100, 20),
-    'fontsize': 36,
-    'kind': 'bar',
-    }
-plotter(fname, view.dropna(), args)
+args.update({ 'ylim': (-1, 1) })
+df_mean = df['mean']
+base = df_mean.columns[0]
+for i in df_mean.columns[1:].tolist():
+    f = 'diff.{0}-{1}{2}'.format(i, base, ext_)
+    fname = path.join(user.args.plotdir, f)
+    view = df_mean[i] - df_mean[base]
+    view.sort(ascending=False)
+    plotter(fname, view.dropna(), args)
 
-colors = ['DarkBlue', 'DarkGreen']
+exit()
+
+colors = ['DarkBlue', 'DarkGreen', 'DarkRed']
 csvheader = ['group', 'filter', 'correlation']
 with CSVWriter(csvheader, user.args.stfile) as csv:
     csv.writeheader()
     for i in user.args.clusters:
         cf = pd.DataFrame.from_csv(i)
-        view = pd.merge(vals, cf, left_index=True, right_index=True)
+        view = pd.merge(df_mean, cf, left_index=True, right_index=True)
 
         view.reset_index(level='node', drop=True, inplace=True)
         idxs = view.index.unique()

@@ -38,7 +38,7 @@ for i in ${logs[@]}; do
     if [ ! $cls ]; then
 	continue
     fi
-    fig=${l[1]}.`sed -e's/ /\./g' <<< ${filters[@]}`
+    # fig=${l[1]}.`sed -e's/ /\./g' <<< ${filters[@]}`
     output=`dirname $dat`/fig/$fig
     mkdir --parents $output
 
