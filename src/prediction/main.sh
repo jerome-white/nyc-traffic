@@ -19,10 +19,11 @@ estfmt() {
 
 unset header
 machines=(
-    # svm
-    # bayes
+    svm
+    bayes
     forest
-    # tree
+    tree
+    dummy
 )
 mtype=classifier
 nycpath=$NYCTRAFFIC/src/prediction
@@ -39,7 +40,7 @@ cp $NYCTRAFFIC/etc/opts/prediction $out
 
 for pwindow in 6; do
     for neighbors in 1; do
-	for cluster in simple var; do
+	for cluster in hybrid; do
 	    echo "[ `date` ] $pw $n" >> $out/trace
 	    
 	    python3 $nycpath/main.py \
@@ -50,7 +51,7 @@ for pwindow in 6; do
 		--target-window 5 \
 		--speed-threshold -0.002 \
 		--${header}print-header \
-		--k-folds 10 \
+		--k-folds 4 \
 		--aggregator simple \
 		`estfmt $mtype ${machines[@]}`
 	

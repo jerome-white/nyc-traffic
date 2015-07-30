@@ -7,10 +7,12 @@ import datetime as dt
 import scipy.constants as constant
 
 from tempfile import NamedTemporaryFile
-from collections import deque
+from collections import namedtuple
 from sklearn.svm import SVC
 from sklearn.svm import SVR
 from sklearn.tree import DecisionTreeRegressor
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
@@ -24,6 +26,9 @@ from lib import cluster as cl
 from lib import aggregator as ag
 from lib.db import DatabaseConnection
 from lib.logger import log
+
+ClsProbs = namedtuple('ClsProbs', [ 'valid', 'probabilities' ])
+ClassifierFactory = namedtuple('ClassifierFactory', [ 'construct', 'kwargs' ])
 
 class Machine:
     def __init__(self, nid, cli, aggregator):
@@ -46,7 +51,7 @@ class Machine:
             'kfold',
             ]
         self.classifiers_ = {}
-        self.probs = None
+        self.probs = ClsProbs(False, None)
         
     def header(self):
         return self.header_ + self.cli.options() + self.metrics()
@@ -84,12 +89,11 @@ class Machine:
         predictions = []
 
         for i in self.args.classifier:
-            if i not in self.classifiers_:
+            try:
+                (ptr, kwargs) = self.classifiers_[i]
+                clf = ptr(**kwargs)
+            except KeyError:
                 continue
-            ptr = self.classifiers_[i]
-    
-            # XXX this is hack
-            clf = ptr(probability=True) if ptr.__name__ == 'SVC' else ptr()
 
             for (j, k) in enumerate(data.kfold(observations, self.args.folds)):
                 msg = '{0}: prediction {1} of {2}'
@@ -108,9 +112,9 @@ class Machine:
                         msg = '{0}: {1} {2}'.format(i, error, fp.name)
                         log.error(msg)
                     continue
-            
+                
                 self.set_probabilities(clf, x_test)
-
+                
                 #
                 # add accounting information to result row
                 #
@@ -154,10 +158,10 @@ class Machine:
     
     def _label(self, node, left, right):
         raise NotImplementedError()
-    
+
     def set_probabilities(self, clf, x):
         raise NotImplementedError()
-
+    
 class Classifier(Machine):
     def __init__(self, nid, cli, aggregator=ag.simple):
         super().__init__(nid, cli, aggregator)
@@ -165,30 +169,43 @@ class Classifier(Machine):
         self.metrics_ = [
             self.confusion_matrix,
             self.roc,
-            sklearn.metrics.matthews_corrcoef,
             sklearn.metrics.accuracy_score,
+            sklearn.metrics.f1_score,
+            sklearn.metrics.matthews_corrcoef,
         ]
 
         self.classifiers_ = {
-            'svm': SVC,
-            'bayes': GaussianNB,
-            'boost': GradientBoostingClassifier,
-            'forest': RandomForestClassifier,
+            'svm': ClassifierFactory(SVC, {
+                'cache_size': 2000, # 2GB
+                # 'probability': True,
+            }),
+            'tree': ClassifierFactory(DecisionTreeClassifier, {}),
+            'bayes': ClassifierFactory(GaussianNB, {}),
+            'dummy': ClassifierFactory(DummyClassifier, {}),
+            'boost': ClassifierFactory(GradientBoostingClassifier, {}),
+            'forest': ClassifierFactory(RandomForestClassifier, {}),
         }
 
     def set_probabilities(self, clf, x):
-        self.probs = clf.predict_proba(x)
-        
-    def roc(self, y_true, y_pred):
         try:
-            prob = self.probs[:,1]
-            (fpr, tpr, _) = sklearn.metrics.roc_curve(y_true, prob)
-            
-            return sklearn.metrics.auc(fpr, tpr)
-        except IndexError:
-            err = 'Invalid probability matrix: {0}'.format(self.probs.shape)
-            raise ValueError(err)
+            self.probs = ClsProbs(True, clf.predict_proba(x))
+        except AttributeError as err:
+            # this generally happens if a classifier doesn't natively
+            # support probability estimates (such as SVMs; set
+            # 'probability' in this case)
+            log.warning(err)
 
+    def roc(self, y_true, y_pred):
+        if self.probs.valid:
+            p = self.probs.probabilities
+            try:
+                (fpr, tpr, _) = sklearn.metrics.roc_curve(y_true, p[:,1])
+                return sklearn.metrics.auc(fpr, tpr)
+            except IndexError:
+                err = 'Invalid probability matrix: {0}'
+                err = err.format(p.shape)
+                raise ValueError(err)
+                                                        
     def confusion_matrix(self, y_true, y_pred):
         cm = sklearn.metrics.confusion_matrix(y_true, y_pred)
         cv = cm.flatten()
