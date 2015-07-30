@@ -3,9 +3,9 @@ import pickle
 
 import numpy as np
 import pandas as pd
-import collections as coll
 import scipy.constants as constant
 
+from collections import OrderedDict
 from multiprocessing import Pool
 from sklearn.cluster import KMeans
 
@@ -17,8 +17,6 @@ from lib import cpoint as cp
 from lib.db import DatabaseConnection
 from lib.logger import log
 from lib.csvwriter import CSVWriter
-
-Result = coll.namedtuple('Result', [ 'nid', 'tally' ])
 
 def g(df, *args):
     assert(type(df) == np.ndarray)
@@ -43,24 +41,31 @@ def f(*args):
 
     log.info('{0} apply'.format(nid))
 
+    #
+    # determine which windows constitute a traffic event
+    #
     df = pd.rolling_apply(node.readings.speed, winlen, g, min_periods=winlen,
                           center=True, args=[ window, threshold ])
     df.dropna(inplace=True)
 
-    msg = '{0} aggregate'.format(nid)
-    if df.empty:
-        log.info(msg + '-')
-        return None
+    #
+    # aggregate the results
+    #
+    log.info('{0} aggregate'.format(nid))
     
-    log.info(msg + '+')
-    
-    totals = coll.OrderedDict(zip(range(oneday), [0] * oneday))
-    for i in df.index:
-        key = cp.bucket(i)
-        assert(key in totals)
-        totals[key] += df.ix[i]
-
-    return Result(nid, list(totals.values()))
+    vals = []
+    if not df.empty:
+        totals = OrderedDict(zip(range(oneday), [0] * oneday))
+        
+        for i in df.index:
+            key = cp.bucket(i)
+            assert(key in totals)
+            totals[key] += df.ix[i]
+            
+        vals.extend(totals.values())
+        vals.append(nid) # this is important
+        
+    return vals
 
 cargs = cli.CommandLine(cli.optsfile('chgpt'))
 args = cargs.args
@@ -99,13 +104,12 @@ if args.figures:
         utils.mkplot(df, fname, title, False, figsize=(12, 8))
 
 if args.clusters > 0:
-    dlist = [ x.tally for x in observations ]
-    (features, labels) = data.cleanse(dlist)
+    (measurements, nodes) = data.cleanse(observations)
     kmeans = KMeans(n_clusters=args.clusters)
-    kmeans.fit(features)
+    kmeans.fit(measurements)
 
     hdr = [ 'node', 'cluster' ]
-    stack = np.dstack((labels, kmeans.labels_))
+    stack = np.dstack((nodes, kmeans.labels_))
     with CSVWriter(hdr) as writer:
         writer.writeheader()
         for row in stack.reshape(-1, stack.shape[-1]):
