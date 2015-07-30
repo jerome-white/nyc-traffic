@@ -16,11 +16,11 @@ def plotter(fname, data, args):
 ext_ = '.pdf'
 user = cli.CommandLine(cli.optsfile('prediction-plot'))
 
-vals = pd.DataFrame.from_csv(user.args.data, sep=';', index_col=None)
-assert(all([ x in vals.columns for x in user.args.gfilter]))
+df = pd.DataFrame.from_csv(user.args.data, sep=';', index_col=None)
+assert(all([ x in df.columns for x in user.args.gfilter]))
     
-df = vals.loc[vals['confusion_matrix'] != np.nan]
-grouped = vals.groupby(user.args.gfilter + ['node'])['matthews_corrcoef']
+df = df.loc[df['confusion_matrix'] != np.nan]
+grouped = df.groupby(user.args.gfilter + ['node'])['matthews_corrcoef']
 df = grouped.agg([np.mean, stats.sem]).unstack(0)
 
 #
@@ -69,35 +69,36 @@ exit()
 
 colors = ['DarkBlue', 'DarkGreen', 'DarkRed']
 csvheader = ['group', 'filter', 'correlation']
+args = { 'kind': 'scatter', 'x': 'cluster', 'y': 'mean' }
+
 with CSVWriter(csvheader, user.args.stfile) as csv:
     csv.writeheader()
-    for i in user.args.clusters:
-        cf = pd.DataFrame.from_csv(i)
-        view = pd.merge(df_mean, cf, left_index=True, right_index=True)
+    for i in user.args.gfilter:
+        for j in df[i].unique():
+            cf = pd.DataFrame.from_csv(j)
+            view = pd.merge(df_mean, cf, left_index=True, right_index=True)
 
-        view.reset_index(level='node', drop=True, inplace=True)
-        idxs = view.index.unique()
-        for (j, k) in enumerate(idxs):
-            view.loc[k, 'cluster'] += j / len(idxs)
+            view.reset_index(level='node', drop=True, inplace=True)
+            idxs = view.index.unique()
+            for (x, y) in enumerate(idxs):
+                view.loc[y, 'cluster'] += x / len(idxs)
 
-        f = path.basename(i) + ext_
-        fname = path.join(user.args.plotdir, f)
+                f = path.basename(i) + ext_
+                fname = path.join(user.args.plotdir, f)
 
-        ax = None
-        args = {
-            'kind': 'scatter',
-            'x': 'cluster',
-            'y': 'mean',
-            'xlim': (view.cluster.min(), view.cluster.max()),
-            'ax': ax,
-            }
-        assert(len(idxs) == len(colors))
+                ax = None
+                args.update({
+                    'xlim': (view.cluster.min(), view.cluster.max()),
+                    'ax': ax,
+                })
+                assert(len(idxs) == len(colors))
         
-        for (j, k) in zip(idxs, colors):
-            v = view.loc[j]
-            ax = v.plot(label=str(j), color=k, **args)
-            
-            row = [ f, j, v['mean'].corr(v['cluster'], method='pearson') ]
-            csv.writerow(dict(zip(csvheader, row)))
-        assert(ax)
-        utils.mkplot_(ax, fname)
+                for (x, y) in zip(idxs, colors):
+                    v = view.loc[x]
+                    ax = v.plot(label=str(x), color=y, **args)
+                    corr = v['mean'].corr(v['cluster'], method='pearson')
+                    
+                    row = [ f, j, corr ]
+                    csv.writerow(dict(zip(csvheader, row)))
+                assert(ax)
+                utils.mkplot_(ax, fname)

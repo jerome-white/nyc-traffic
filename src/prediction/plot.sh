@@ -15,7 +15,7 @@ while getopts "l:f:h" OPTION; do
 	h)
 	    cat <<EOF
 $0 [options]
- -l log directory and neighbors: "dir,n"
+ -l log directory
  -f filters
 
 Both can be specified multiple times; all filters will be applied to
@@ -30,15 +30,12 @@ done
 prediction=$traffic/prediction
 for i in ${logs[@]}; do
     echo $i
-    
-    l=( `sed -e's/,/ /g' <<< $i` )
-    dat=$prediction/${l[0]}/dat
+    dat=$prediction/$i/dat
 
     cls=( `ls $traffic/cluster/log/${l[1]}/dat-* 2> /dev/null` )
     if [ ! $cls ]; then
 	continue
     fi
-    # fig=${l[1]}.`sed -e's/ /\./g' <<< ${filters[@]}`
     output=`dirname $dat`/fig/$fig
     mkdir --parents $output
 
