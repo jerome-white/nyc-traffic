@@ -27,7 +27,7 @@ done
 # cluster for each combination
 for i in ${combo[@]}; do
     c=( `sed -e"s/$sep/ /g" <<< $i` )
-    echo ${c[@]}
+    echo "[`date`] ${c[@]}"
     
     dir=$NYCTRAFFIC/log/cluster/`sed -e's/ /\//g' <<< ${c[@]}`
     pkl=$dir/observations.pkl

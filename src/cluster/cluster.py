@@ -110,34 +110,43 @@ if args.clusters > 0:
                     precompute_distances=True, n_jobs=-1)
     kmeans.fit(measurements)
 
-    colors = {}
-    ax = plt.gca()
-    ax.set_xticks(()), ax.set_yticks(())
+    plt.clf()
+    colors = set()
+    msize_default = 20 # default size of matplotlib scatter plot marker
     for i in range(args.clusters):
+        while True:
+            c = utils.hexcolor(white=200)
+            if c not in colors:
+                colors.add(c)
+                break
+            
         members = kmeans.labels_ == i
         point_args = {
             'x': measurements[members, 0],
             'y': measurements[members, 1],
+            's': msize_default * (3 / 4),
             'marker': '.',
             }
-
+        
         center = kmeans.cluster_centers_[i]
         center_args = {
             'x': center[0],
             'y': center[1],
-#            'markersize': 6,
+            's': msize_default * 4,
+            'zorder': args.clusters + 1,
             }
-
-        while True:
-            c = utils.hexcolor(white=200)
-            if c not in colors:
-                colors[c] = True
-                break
         
         for j in (point_args, center_args):
-            ax.scatter(c=c, **j)
+            plt.scatter(c=c, **j)
+            
+    for i in range(2):
+        (l, r) = (measurements[:,i].min() - 1, measurements[:,i].max() + 1)
+        (f, g) = (plt.ylim, plt.yticks) if i else (plt.xlim, plt.xticks)
+        f(l, r), g(())
+    
     fname = utils.mkfname(args.figures, args.clusters)
-    plt.gcf().savefig(fname)
+    plt.savefig(fname)
+    plt.close()
 
     hdr = [ 'node', 'cluster' ]
     stack = np.dstack((nodes, kmeans.labels_))
