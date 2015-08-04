@@ -106,7 +106,8 @@ else:
 
 if args.clusters > 0:
     (measurements, nodes) = data.cleanse(observations)
-    kmeans = KMeans(n_clusters=args.clusters)
+    kmeans = KMeans(n_clusters=args.clusters, max_iter=1000, n_init=100,
+                    precompute_distances=True, n_jobs=-1)
     kmeans.fit(measurements)
 
     colors = {}
