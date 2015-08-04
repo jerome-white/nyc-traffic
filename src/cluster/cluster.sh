@@ -2,7 +2,14 @@
 
 sep=:
 pth=$NYCTRAFFIC/src/cluster
-mkdir --parents $pth/var
+
+while getopts "xp" OPTION; do
+    case $OPTION in
+        x) execute=1 ;;
+	p) plot=1 ;;
+        *) exit 1 ;;
+    esac
+done
 
 # build an array of cluster combinations beforehand (since some
 # combinations won't make sense if blindly added to a loop)
@@ -22,23 +29,28 @@ for i in ${combo[@]}; do
     c=( `sed -e"s/$sep/ /g" <<< $i` )
     echo ${c[@]}
     
-    dir=$pth/var/`sed -e's/ /\//g' <<< ${c[@]}`
+    dir=$NYCTRAFFIC/log/cluster/`sed -e's/ /\//g' <<< ${c[@]}`
     pkl=$dir/observations.pkl
     
     mkdir --parents $dir
 
-    python3 $pth/cluster.py \
+    if [ $execute ]; then
+	python3 $pth/cluster.py \
     	    --observation-window ${c[0]} \
     	    --prediction-window ${c[1]} \
     	    --target-window ${c[2]} \
     	    --speed-threshold ${c[3]} \
     	    --pickle $pkl
+    fi
 
-    for j in `seq 2 9`; do
-    	python3 $pth/cluster.py \
+    if [ $plot ]; then
+	for j in `seq 2 9`; do
+    	    python3 $pth/cluster.py \
 		--resume $pkl \
 		--fig-directory $dir \
 		--clusters $j > \
-		$dir/dat-$j
-    done
+		$dir/dat-$j || \
+		exit
+	done
+    fi
 done 2> $pth/log

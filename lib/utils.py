@@ -1,4 +1,5 @@
 import os
+import random
 
 import matplotlib.pyplot as plt
 
@@ -33,3 +34,7 @@ def mktitle(elements):
         fmtlst.append(y)
 
     return ' '.join(fmtstr).format(*fmtlst)
+
+def hexcolor(black=0, white=255):
+    hx = [ '{0:02X}'.format(random.randint(black, white)) for _ in range(3) ]
+    return '#' + ''.join(hx)
