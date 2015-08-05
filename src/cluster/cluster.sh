@@ -49,7 +49,7 @@ for i in ${combo[@]}; do
 		--resume $pkl \
 		--fig-directory $dir \
 		--clusters $j > \
-		$dir/dat-$j || \
+		$dir/cluster-$j.csv || \
 		exit
 	done
     fi
