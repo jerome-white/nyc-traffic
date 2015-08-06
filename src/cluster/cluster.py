@@ -45,7 +45,7 @@ def f(*args):
     # determine which windows constitute a traffic event
     #
     df = pd.rolling_apply(node.readings.speed, winlen, g, min_periods=winlen,
-                          center=True, args=[ window, threshold ])
+                          args=[ window, threshold ])
     df.dropna(inplace=True)
 
     #
