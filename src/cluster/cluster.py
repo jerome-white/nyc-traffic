@@ -4,6 +4,7 @@ import pickle
 import numpy as np
 import pandas as pd
 import scipy.constants as constant
+import matplotlib.pyplot as plt
 
 from collections import OrderedDict
 from multiprocessing import Pool
@@ -87,26 +88,65 @@ else:
         with open(args.pickle, mode='wb') as fp:
             pickle.dump(observations, fp)
 
-if args.figures:
-    for (nid, tally) in observations:
-        assert(len(tally) == oneday)
-        idx = pd.date_range(start='12:00', periods=oneday, freq='T')
-        df = pd.Series(data=tally, index=idx)
-        elements = [
-            [ '} |', str(nid) ],
-            [ '}', window.observation ],
-            [ '}', window.prediction ],
-            [ '}', window.target ],
-        ]
-        fname = utils.mkfname(args.figures, nid)
-        title = utils.mktitle(elements)
+# if args.figures and args.verbose:
+#     for (nid, tally) in observations:
+#         assert(len(tally) == oneday)
+#         idx = pd.date_range(start='12:00', periods=oneday, freq='T')
+#         df = pd.Series(data=tally, index=idx)
+#         elements = [
+#             [ '} |', str(nid) ],
+#             [ '}', window.observation ],
+#             [ '}', window.prediction ],
+#             [ '}', window.target ],
+#         ]
+#         fname = utils.mkfname(args.figures, nid)
+#         title = utils.mktitle(elements)
             
-        utils.mkplot(df, fname, title, False, figsize=(12, 8))
+#         utils.mkplot(df, fname, title, False, figsize=(12, 8))
 
 if args.clusters > 0:
     (measurements, nodes) = data.cleanse(observations)
-    kmeans = KMeans(n_clusters=args.clusters)
+    kmeans = KMeans(n_clusters=args.clusters, max_iter=1000, n_init=100,
+                    precompute_distances=True, n_jobs=-1)
     kmeans.fit(measurements)
+
+    plt.clf()
+    colors = set()
+    msize_default = 20 # default size of matplotlib scatter plot marker
+    for i in range(args.clusters):
+        while True:
+            c = utils.hexcolor(white=200)
+            if c not in colors:
+                colors.add(c)
+                break
+            
+        members = kmeans.labels_ == i
+        point_args = {
+            'x': measurements[members, 0],
+            'y': measurements[members, 1],
+            's': msize_default * (3 / 4),
+            'marker': '.',
+            }
+        
+        center = kmeans.cluster_centers_[i]
+        center_args = {
+            'x': center[0],
+            'y': center[1],
+            's': msize_default * 4,
+            'zorder': args.clusters + 1,
+            }
+        
+        for j in (point_args, center_args):
+            plt.scatter(c=c, **j)
+            
+    for i in range(2):
+        (l, r) = (measurements[:,i].min() - 1, measurements[:,i].max() + 1)
+        (f, g) = (plt.ylim, plt.yticks) if i else (plt.xlim, plt.xticks)
+        f(l, r), g(())
+    
+    fname = utils.mkfname(args.figures, args.clusters)
+    plt.savefig(fname)
+    plt.close()
 
     hdr = [ 'node', 'cluster' ]
     stack = np.dstack((nodes, kmeans.labels_))
