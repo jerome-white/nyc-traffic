@@ -29,10 +29,12 @@ def getnodes(connection, restrict=True):
         for row in cursor:
             yield row['id']
 
-def nodegen(args):
+def nodegen(args=None):
+    k = tuple(args) if type(args) == list else args
+    
     with db.DatabaseConnection() as conn:
         for (i, j) in enumerate(getnodes(conn)):
-            yield (i, j, tuple(args))
+            yield (i, j, k)
 
 def neighbors_(source, levels, cluster, conn, seen=None):
     if not seen:
@@ -138,7 +140,7 @@ class Node:
         data = pd.read_sql_query(sql, con=connection, index_col='as_of')
         data.columns = [ 'speed', 'travel' ]
         
-        return data.resample(self.freq)
+        return data.resample(self.freq) if self.freq else data
 
     def __get_neighbors(self, connection):
         sql = ('SELECT target.id AS id ' +
