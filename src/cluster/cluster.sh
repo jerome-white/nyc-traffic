@@ -29,7 +29,7 @@ for i in ${combo[@]}; do
     c=( `sed -e"s/$sep/ /g" <<< $i` )
     echo "[`date`] ${c[@]}"
     
-    dir=$NYCTRAFFIC/log/cluster/`sed -e's/ /\//g' <<< ${c[@]}`
+    dir=$NYCTRAFFICLOG/cluster/`sed -e's/ /\//g' <<< ${c[@]}`
     pkl=$dir/observations.pkl
     
     mkdir --parents $dir

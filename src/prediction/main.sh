@@ -17,47 +17,73 @@ estfmt() {
     return
 }
 
-unset header
-machines=(
-    svm
-    bayes
-    forest
-    tree
-    dummy
-)
-mtype=classifier
-nycpath=$NYCTRAFFIC/src/prediction
-out=$nycpath/log/`date +%Y_%m-%d_%H%M`.`hostname`
+mkcurrent() {
+    cd $1
+    rm --force current
+    ln --symbolic `basename $out` current
+    cd $OLDPWD
+    
+    return
+}
+
+#
+# Create the output directory
+#
+out=$NYCTRAFFICLOG/prediction/`date +%Y_%m-%d_%H%M`.`hostname`
 if [ -e $out ]; then
     echo "$out exists" 1>&2
     exit 1
 fi
-
 mkdir --parents $out
-( cd log; rm --force current; ln --symbolic `basename $out` current )
-cp $0 $out
-cp $NYCTRAFFIC/etc/opts/prediction $out
+mkcurrent `dirname $out`
 
+#
+# Copy accounting files to the output directory
+#
+records=(
+    `pwd`/`basename $0`
+    $NYCTRAFFIC/etc/opts/prediction
+)
+for i in ${records[@]}; do
+    cp $i $out
+done
+
+#
+# Begin the run!
+#
+
+# set variables
+machines=(
+    # svm
+    # bayes
+    forest
+    # tree
+    # dummy
+)
+unset header
+mtype=classifier
+
+# run!
 for pwindow in 6; do
-    for neighbors in 1; do
-	for cluster in hybrid; do
+    for neighbors in 1 2; do
+
 	    echo "[ `date` ] $pw $n" >> $out/trace
 	    
-	    python3 $nycpath/main.py \
+	    python3 $NYCTRAFFIC/src/prediction/main.py \
 		--neighbors $neighbors \
-		--neighbor-selection $cluster \
-		--observation-window 10 \
+		--neighbor-selection hybrid \
+		--observation-window 12 \
 		--prediction-window $pwindow \
-		--target-window 5 \
+		--target-window 4 \
 		--speed-threshold -0.002 \
 		--${header}print-header \
-		--k-folds 4 \
+		--k-folds 100 \
 		--aggregator simple \
 		`estfmt $mtype ${machines[@]}`
 	
 	    if [ $? -eq 0 ]; then
 		header=no-
 	    fi
-	done
+
     done
 done > $out/dat 2> $out/log
