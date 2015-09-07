@@ -31,7 +31,13 @@ with Pool() as pool:
     results = pool.starmap(f, nd.nodegen([ seconds ]), 1)
 
 results = filter(lambda x: x.inter is not pd.NaT, results)
-xvals = [ float(x.inter) for x in results ]
+
+xvals = []
+with CSVWriter(Mapping._fields) as writer:
+    writer.writeheader()
+    for i in results:
+        writer.writerow(i._asdict())
+        xvals.append(float(i.inter))
 xvals.sort()
 yvals = [ (x + 1) / len(xvals) for (x, _) in enumerate(xvals) ]
 
@@ -45,4 +51,3 @@ plt.plot(xvals, yvals)
 
 plt.savefig('reporting-times.pdf', bbox_inches='tight')
 plt.close('all')
-
