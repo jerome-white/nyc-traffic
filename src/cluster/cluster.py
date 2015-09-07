@@ -148,8 +148,9 @@ if args.clusters > 0:
     plt.savefig(fname)
     plt.close()
 
-    hdr = [ 'node', 'cluster' ]
-    stack = np.dstack((nodes, kmeans.labels_))
+    hdr = [ 'node', 'cluster', 'total', 'mean', 'std' ]
+    mstats = [ x(measurements, axis=1) for x in (np.sum, np.mean, np.std) ]
+    stack = np.dstack((nodes, kmeans.labels_) + tuple(mstats))
     with CSVWriter(hdr) as writer:
         writer.writeheader()
         for row in stack.reshape(-1, stack.shape[-1]):
