@@ -4,6 +4,7 @@ import machine as m
 
 from multiprocessing import Pool
 
+from lib import db
 from lib import cli
 from lib import aggregator as ag
 from lib.node import nodegen
@@ -46,6 +47,7 @@ def hextract(results):
     return (header, results)
 
 log.info('phase 1')
+log.info('db version {0}'.format(db.mark()))
 
 with Pool() as pool:
     cargs = cli.CommandLine(cli.optsfile('prediction'))
