@@ -3,7 +3,10 @@
 toopts() {
     opt=--$1
     shift
-    echo "$opt `sed -e"s/ / $opt /g" <<< $@`"
+    if [ $# -gt 0 ]; then
+	echo "$opt `sed -e"s/ / $opt /g" <<< $@`"
+    fi
+    
     return
 }
 
@@ -29,15 +32,20 @@ done
 for i in ${logs[@]}; do
     echo $i
 
+    datfile=$i/dat
+    if [ ! -e $datfile -o `stat --format='%s' $datfile` -eq 0 ]; then
+	continue
+    fi
+
     fig=$i/fig
     if [ ! -e $fig ]; then
 	mkdir $i/fig
     fi
 
     python3 $NYCTRAFFIC/src/prediction/plot.py \
-	    --data $i/dat \
+	    --data $datfile \
 	    --plot-directory $fig \
-	    --cluster-tld $NYCTRAFFIC/log/cluster \
+	    --cluster-tld $NYCTRAFFICLOG/cluster \
 	    `toopts filter ${filters[@]}` ||
 	break
 done
