@@ -9,6 +9,8 @@ from lib import db
 from lib import node as nd
 from lib.logger import log
 
+threshold_ = 0.01
+
 class Cluster:
     def __init__(self, nid, connection=None, freq='T'):
         self.nid = nid
@@ -17,7 +19,7 @@ class Cluster:
         if close:
             connection = db.DatabaseConnection().resource
         
-        self.neighbors = self.__get_neighbors(connection)
+        self.neighbors = nd.get_neighbors(self.nid, connection)
         self.readings = self.__get_readings(self.neighbors, connection, freq)
             
         if close:
@@ -65,23 +67,11 @@ class Cluster:
         
         return data.resample(freq)
 
-    def __get_neighbors(self, connection):
-        sql = ('SELECT target.id AS id ' +
-               'FROM node source, node target ' +
-               'WHERE INTERSECTS(source.segment, target.segment) ' +
-               'AND source.id = {0} AND target.id <> {0}')
-        sql = sql.format(self.nid)
-
-        with db.DatabaseCursor(connection) as cursor:
-            cursor.execute(sql)
-            
-            return frozenset([ row['id'] for row in cursor ])
-
-    def lag(self, nid, threshold=0.01):
+    def lag(self, nid, threshold=threshold_):
         sql = ('SELECT ROUND(AVG(travel_time) / {0}) AS lag ' +
                'FROM reading ' +
                'WHERE node = {1}')
-        sql = sql.format(constant.minute, self.nid)
+        sql = sql.format(constant.minute, nid)
         
         with db.DatabaseConnection() as connection:
             with db.DatabaseCursor(connection) as cursor:
@@ -104,22 +94,28 @@ class VARCluster(Cluster):
         except (LinAlgError, ValueError) as err:
             raise AttributeError(err)
 
-    def lag(self, nid, threshold=0.01):
+    def lag(self, nid, threshold=threshold_):
         idxs = [ 0, self.readings.columns.tolist().index(str(nid)) ]
+
+        #
+        # Get the maximum impact in both directions of the shock:
+        #   vals[0]: nid -> self.nid
+        #   vals[1]: self.nid -> nid
+        #
         vals = [ self.irf.irfs[:,x,y] for (x, y) in zip(idxs, idxs[::-1]) ]
         (incoming, outgoing) = [ np.amax(x) for x in vals ]
         
         difference = abs(incoming - outgoing) / ((incoming + outgoing) / 2)
         if incoming < outgoing or difference < threshold:
             raise ValueError('Invalid: {0} {1}'.format(incoming, outgoing))
-
+        
         return np.argmax(vals[0])
 
 class HybridCluster(VARCluster):
     def __init__(self, nid, connection=None, freq='T', maxlags=20):
         super().__init__(nid, connection, freq, maxlags)
 
-    def lag(self, nid, threshold=0.01):
+    def lag(self, nid, threshold=threshold_):
         super().lag(nid, threshold)
 
         # Getting to this point means VARCluster's lag didn't raise an

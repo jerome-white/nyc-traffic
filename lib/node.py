@@ -28,7 +28,7 @@ def getnodes(connection, restrict=True):
         cursor.execute(sql)
         for row in cursor:
             yield row['id']
-
+            
 def nodegen(args=None):
     k = tuple(args) if type(args) == list else args
     
@@ -36,6 +36,17 @@ def nodegen(args=None):
         for (i, j) in enumerate(getnodes(conn)):
             yield (i, j, k)
 
+def get_neighbors(nid, connection, xfun='ST_INTERSECTS'):
+    sql = ('SELECT target.id AS nid ' +
+           'FROM node source, node target ' +
+           'WHERE {1}(source.segment, target.segment) ' +
+           'AND source.id = {0} AND target.id <> {0}')
+    sql = sql.format(nid, xfun)
+    
+    with db.DatabaseCursor(connection) as cursor:
+        cursor.execute(sql)
+        return frozenset([ row['nid'] for row in cursor ])
+    
 def neighbors_(source, levels, cluster, conn, seen=None):
     if not seen:
         root = Element(source, 0, True)
@@ -93,7 +104,7 @@ class Node:
             connection = db.DatabaseConnection().resource
             
         self.readings = self.__get_readings(connection, [ start, stop ])
-        self.neighbors = self.__get_neighbors(connection)
+        self.neighbors = get_neighbors(self.nid, connection)
         self.name = self.__get_name(connection)
 
         if close:
@@ -142,17 +153,6 @@ class Node:
         
         return data.resample(self.freq) if self.freq else data
 
-    def __get_neighbors(self, connection):
-        sql = ('SELECT target.id AS id ' +
-               'FROM node source, node target ' +
-               'WHERE INTERSECTS(source.segment, target.segment) ' +
-               'AND source.id = {0} AND target.id <> {0}')
-        sql = sql.format(self.nid)
-        with db.DatabaseCursor(connection) as cursor:
-            cursor.execute(sql)
-            
-            return frozenset([ row['id'] for row in cursor ])
-        
     def range(self, window, bound=True):
         idx = self.readings.index
         
