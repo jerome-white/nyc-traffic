@@ -34,6 +34,7 @@ class Machine:
     def __init__(self, nid, cli, aggregator):
         self.nid = nid
         self.cli = cli
+        self.net = None
         self.args = self.cli.args
         self.aggregator = aggregator
 
@@ -48,6 +49,7 @@ class Machine:
             'implementation',
             'shape',
             'node',
+            'network',
             'kfold',
             ]
         self.classifiers_ = {}
@@ -67,7 +69,7 @@ class Machine:
         with DatabaseConnection() as conn: 
             source = nd.Node(self.nid, connection=conn)
             cluster = self.nhandler[self.args.nselect]
-            nodes = nd.neighbors(source, self.args.neighbors, cluster, conn)
+            self.net = nd.neighbors(source, self.args.neighbors, cluster, conn)
             
         #
         # Build the observation matrix by looping over the source
@@ -76,7 +78,7 @@ class Machine:
         for (i, j) in source.range(window):
             try:
                 label = self._label(source, i, j)
-                features = self._features(nodes, i)
+                features = self._features(self.net, i)
                 observations.append(features + label)
             except ValueError as verr:
                 pass
@@ -122,6 +124,7 @@ class Machine:
                     ptr.__name__,  # implementation
                     x_train.shape, # shape
                     self.nid,      # node
+                    self.net,      # network
                     j,             # (k)fold
                     ]
                 assert(len(lst) == len(self.header_))
