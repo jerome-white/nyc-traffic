@@ -1,17 +1,19 @@
+import collections
+
 import numpy as np
 import pandas as pd
 import datetime as dt
 import scipy.constants as constant
 
 from tempfile import NamedTemporaryFile
-from collections import namedtuple
 from statsmodels.tsa import stattools as st
 
 from lib import db
 from lib.logger import log
 
-Element = namedtuple('Element', [ 'node', 'lag', 'root' ])
-Window = namedtuple('Window', [ 'observation', 'prediction', 'target' ])
+Element = collections.namedtuple('Element', [ 'node', 'lag', 'root' ])
+Window = collections.namedtuple('Window',
+                                [ 'observation', 'prediction', 'target' ])
 
 def winsum(window):
     return window.observation + window.prediction + window.target
@@ -36,12 +38,26 @@ def nodegen(args=None):
         for (i, j) in enumerate(getnodes(conn)):
             yield (i, j, k)
 
-def get_neighbors(nid, connection, xfun='ST_INTERSECTS'):
+def get_neighbors(nid, connection, spatial=True):
+    '''
+    Get the geospatial neighbors of a node.
+    spatial: True: use MySQL spatial functions (5.6+)
+             False: use minimum bounding rectangles
+    '''
+    
+    additions = collections.defaultdict(str)
+    if spatial:
+        st_fun = 'ST_DISTANCE(target.segment, source.segment)'
+        additions['order'] = 'ORDER BY ' + st_fun
+        additions['geo'] = 'ST_'
+    else:
+        additions['geo'] = 'MBR'
+        
     sql = ('SELECT target.id AS nid ' +
            'FROM node source, node target ' +
-           'WHERE {1}(source.segment, target.segment) ' +
-           'AND source.id = {0} AND target.id <> {0}')
-    sql = sql.format(nid, xfun)
+           'WHERE {1}INTERSECTS(source.segment, target.segment) ' +
+           'AND source.id = {0} AND target.id <> {0} {2}')
+    sql = sql.format(nid, additions['geo'], additions['order'])
     
     with db.DatabaseCursor(connection) as cursor:
         cursor.execute(sql)
