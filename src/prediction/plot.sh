@@ -10,10 +10,11 @@ toopts() {
     return
 }
 
-while getopts "l:f:h" OPTION; do
+while getopts "l:f:d:h" OPTION; do
     case $OPTION in
 	l) logs=( ${logs[@]} $OPTARG ) ;;
 	f) filters=( ${filters[@]} $OPTARG ) ;;
+	d) display="--display $OPTARG" ;;
 	h)
 	    cat <<EOF
 $0 [options]
@@ -46,6 +47,7 @@ for i in ${logs[@]}; do
 	    --data $datfile \
 	    --plot-directory $fig \
 	    --cluster-tld $NYCTRAFFICLOG/cluster \
+	    $display \
 	    `toopts filter ${filters[@]}` ||
 	break
 done
