@@ -45,6 +45,7 @@ for i in (max, min, np.nanmean, np.nanstd):
     log.info('{0}: {1:.2f}'.format(i.__name__, i(xvals)))
 
 plt.xlim((0, 10))
+plt.xticks(range(11))
 plt.xlabel('Reporing time (min)')
 plt.ylabel('Fraction of segments')
 plt.grid()
