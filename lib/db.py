@@ -32,5 +32,6 @@ def mark():
 
 def process(sql, args=None):
     s = ' '.join(sql)
-    return s.format(args) if args else s
+    
+    return s.format(*args) if args else s
     
