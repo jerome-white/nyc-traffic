@@ -49,8 +49,18 @@ def hextract(results):
 log.info('phase 1')
 log.info('db version {0}'.format(db.mark()))
 
+cargs = cli.CommandLine(cli.optsfile('prediction'))
+with DatabaseConnection() as connection:
+    sql = ('CREATE OR REPLACE VIEW operational AS ' +
+           'SELECT n.id, n.name, n.segment ' +
+           'FROM node AS n ' +
+           'JOIN quality AS q ON n.id = q.node ' +
+           'WHERE q.frequency <= {0}')
+    sql = sql.format(cargs.args.reporting)
+    with DatabaseCursor(connection) as cursor:
+        sql.execute(sql)
+
 with Pool() as pool:
-    cargs = cli.CommandLine(cli.optsfile('prediction'))
     results = pool.starmap(f, nodegen([ cargs ]), 1)
 
 log.info('phase 2')
