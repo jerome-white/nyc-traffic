@@ -56,7 +56,7 @@ cargs = cli.CommandLine(cli.optsfile('prediction'))
 # node table. It contains a subset of segments that we want to
 # consider.
 #
-with DatabaseConnection() as connection:
+with db.DatabaseConnection() as connection:
     sql = [
         [ 'DELETE FROM {0}' ],
         [ 'INSERT INTO {0} (id, name, segment)'
@@ -66,7 +66,7 @@ with DatabaseConnection() as connection:
           'WHERE q.frequency <= {0}'.format(cargs.args.reporting),
         ]
     ]
-    with DatabaseCursor(connection) as cursor:
+    with db.DatabaseCursor(connection) as cursor:
         for i in sql:
             statement = db.process(i, [ 'operational' ])
             cursor.execute(statement)
