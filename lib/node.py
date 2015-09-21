@@ -18,13 +18,8 @@ Window = collections.namedtuple('Window',
 def winsum(window):
     return window.observation + window.prediction + window.target
 
-def getnodes(connection, restrict=True):
-    segments = [
-        'SELECT id FROM node',
-        'WHERE segment IS NOT NULL' if restrict else '',
-        'ORDER BY id ASC',
-    ]
-    sql = ' '.join(segments)
+def getnodes(connection):
+    sql = 'SELECT id FROM operational ORDER BY id ASC'
     
     with db.DatabaseCursor(connection) as cursor:
         cursor.execute(sql)
@@ -54,7 +49,7 @@ def get_neighbors(nid, connection, spatial=True):
         additions['geo'] = 'MBR'
         
     sql = ('SELECT target.id AS nid ' +
-           'FROM node source, node target ' +
+           'FROM operational source, operational target ' +
            'WHERE {1}INTERSECTS(source.segment, target.segment) ' +
            'AND source.id = {0} AND target.id <> {0} {2}')
     sql = sql.format(nid, additions['geo'], additions['order'])
@@ -140,7 +135,7 @@ class Node:
     
     def __get_name(self, connection):
         sql = ('SELECT name ' +
-               'FROM node '+
+               'FROM operational '+
                'WHERE id = {0}')
         sql = sql.format(self.nid)
         
