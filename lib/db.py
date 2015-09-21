@@ -29,3 +29,8 @@ def mark():
             row = cursor.fetchone()
             
             return row['mark']
+
+def process(sql, args=None):
+    s = ' '.join(sql)
+    return s.format(args) if args else s
+    
