@@ -1,19 +1,15 @@
-import collections
-
 import numpy as np
 import pandas as pd
 import datetime as dt
+import collections as coll
 import scipy.constants as constant
 
+from lib import db
 from tempfile import NamedTemporaryFile
+from lib.logger import log
 from statsmodels.tsa import stattools as st
 
-from lib import db
-from lib.logger import log
-
-Element = collections.namedtuple('Element', [ 'node', 'lag', 'root' ])
-Window = collections.namedtuple('Window',
-                                [ 'observation', 'prediction', 'target' ])
+Window = coll.namedtuple('Window', [ 'observation', 'prediction', 'target' ])
 
 def winsum(window):
     return window.observation + window.prediction + window.target
@@ -33,6 +29,12 @@ def nodegen(args=None):
         for (i, j) in enumerate(getnodes(conn)):
             yield (i, j, k)
 
+def nacount(data, col='speed'):
+    return data[col].isnull().sum()
+
+def complete(data, col='speed'):
+    return data.size > 0 and nacount(data, col) == 0
+
 def get_neighbors(nid, connection, spatial=True):
     '''
     Get the geospatial neighbors of a node.
@@ -40,73 +42,28 @@ def get_neighbors(nid, connection, spatial=True):
              False: use minimum bounding rectangles
     '''
     
-    additions = collections.defaultdict(str)
+    fmt = coll.defaultdict(str)
+    fmt['nid'] = nid
     if spatial:
         st_fun = 'ST_DISTANCE(target.segment, source.segment)'
-        additions['order'] = 'ORDER BY ' + st_fun
-        additions['geo'] = 'ST_'
+        fmt['order'] = 'ORDER BY ' + st_fun
+        fmt['geo'] = 'ST_'
     else:
-        additions['geo'] = 'MBR'
+        fmt['geo'] = 'MBR'
         
-    sql = ('SELECT target.id AS nid ' +
-           'FROM operational source, operational target ' +
-           'WHERE {1}INTERSECTS(source.segment, target.segment) ' +
-           'AND source.id = {0} AND target.id <> {0} {2}')
-    sql = sql.format(nid, additions['geo'], additions['order'])
+    sql = [ 'SELECT target.id AS nid',
+            'FROM operational source, operational target',
+            'WHERE {1}INTERSECTS(source.segment, target.segment)',
+            'AND source.id = {0} AND target.id <> {0} {2}',
+            ]
+    sql = db.process(sql, [ fmt[x] for x in ('nid', 'geo', 'order') ])
     
     with db.DatabaseCursor(connection) as cursor:
         cursor.execute(sql)
         return frozenset([ row['nid'] for row in cursor ])
-    
-def neighbors_(source, levels, cluster, conn, seen=None):
-    if not seen:
-        root = Element(source, 0, True)
-        seen = { source.nid: root }
 
-    if levels > 0:
-        try:
-            cl = cluster(source.nid, conn)
-        except AttributeError as err:
-            log.error(err)
-            return seen
-        
-        existing_lag = seen[source.nid].lag
-        for i in cl.neighbors.difference(seen.keys()):
-            try:
-                lag = cl.lag(i) + existing_lag
-            except ValueError as err:
-                log.error(err)
-                continue
-
-            node = Node(i, conn)
-            seen[i] = Element(node, lag, False)
-            n = neighbors_(node, levels - 1, cluster, conn, seen)
-            seen.update(n)
-                    
-    return seen
-            
-def neighbors(source, levels, cluster, conn, align_and_shift=True):
-    elements = neighbors_(source, levels, cluster, conn).values()
-    
-    msg = ', '.join(map(lambda x: ':'.join(map(repr, x)), elements))
-    log.debug('neighbors: {0}'.format(msg))
-
-    if align_and_shift:
-        for i in elements:
-            if not i.root:
-                i.node.readings.shift(i.lag)
-                i.node.align(source, True)
-
-    return [ x.node for x in elements ]
-
-def nacount(data, col='speed'):
-    return data[col].isnull().sum()
-
-def complete(data, col='speed'):
-    return data.size > 0 and nacount(data, col) == 0
-    
 class Node:
-    def __init__(self, nid, connection=None, start=None, stop=None, freq='T'):
+    def __init__(self, nid, connection=None, freq='T'):
         self.nid = nid
         self.freq = freq
 
@@ -114,7 +71,7 @@ class Node:
         if close:
             connection = db.DatabaseConnection().resource
             
-        self.readings = self.__get_readings(connection, [ start, stop ])
+        self.readings = self.__get_readings(connection)
         self.neighbors = get_neighbors(self.nid, connection)
         self.name = self.__get_name(connection)
 
@@ -134,10 +91,11 @@ class Node:
         return self.nid
     
     def __get_name(self, connection):
-        sql = ('SELECT name ' +
-               'FROM operational '+
-               'WHERE id = {0}')
-        sql = sql.format(self.nid)
+        sql = [ 'SELECT name',
+                'FROM operational',
+                'WHERE id = {0}',
+                ]
+        sql = db.process(sql, [ self.nid ])
         
         with db.DatabaseCursor(connection) as cursor:
             cursor.execute(sql)
@@ -145,19 +103,13 @@ class Node:
 
         return row['name']
         
-    def __get_readings(self, connection, drange):
-        option = ['']
-        if any(drange):
-            for (i, j) in zip(drange, [ '>', '<' ]):
-                if i:
-                    tm = i.strftime('%Y-%m-%d %H:%M:%S')
-                    option.append("as_of {1}= '{0}'".format(j, tm))
-                    
-        sql = ('SELECT as_of, speed, travel_time / {2} AS travel ' +
-               'FROM reading ' +
-               'WHERE node = {0}{1} ' +
-               'ORDER BY as_of ASC')
-        sql = sql.format(self.nid, ' AND '.join(option), constant.minute)
+    def __get_readings(self, connection):
+        sql = [ 'SELECT as_of, speed, travel_time / {1} AS travel',
+                'FROM reading',
+                'WHERE node = {0}',
+                'ORDER BY as_of ASC',
+                ]
+        sql = db.process(sql, [ self.nid, constant.minute ])
         
         data = pd.read_sql_query(sql, con=connection, index_col='as_of')
         data.columns = [ 'speed', 'travel' ]

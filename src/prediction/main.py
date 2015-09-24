@@ -2,38 +2,40 @@ import os
 
 import machine as m
 
-from multiprocessing import Pool
-
 from lib import db
 from lib import cli
 from lib import aggregator as ag
 from lib.node import nodegen
 from lib.logger import log
-from lib.csvwriter import CSVWriter 
+from lib.csvwriter import CSVWriter
+from multiprocessing import Pool
 
+machine_ = {
+    'classification': m.Classifier,
+    'estimation': m.Estimator,
+}
+
+aggregator_ = {
+    'simple': ag.simple,
+    'change': ag.change,
+    'average': ag.average,
+    'difference': ag.difference,
+}
+    
 def f(*args):
     (index, node, (cargs,)) = args
     
     log.info('node: {0}'.format(node))
 
-    machine_ = {
-        'classification': m.Classifier,
-        'estimation': m.Estimator,
-        }
     machine = machine_[cargs.args.model]
-    
-    aggregator_ = {
-        'simple': ag.simple,
-        'change': ag.change,
-        'average': ag.average,
-        'difference': ag.difference,
-        }
     aggregator = aggregator_[cargs.args.aggregator]
-
     model = machine(node, cargs, aggregator)
-    results = model.predict(model.classify())
-    if index == 0:
-        results.append(model.header())
+    results = [] if index > 0 else model.header()
+    try:
+        prediction = model.predict(model.classify())
+        results.append(prediction)
+    except ValueError as v:
+        log.error(v)
     
     return results
 

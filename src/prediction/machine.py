@@ -4,9 +4,17 @@ import sklearn.metrics
 
 import numpy as np
 import datetime as dt
+import lib.node as nd
+import lib.cpoint as cp
+import lib.cluster as cl
+import lib.network as nt
+import lib.aggregator as ag
 import scipy.constants as constant
 
+from lib import data
+from lib.db import DatabaseConnection
 from tempfile import NamedTemporaryFile
+from lib.logger import log
 from collections import namedtuple
 from sklearn.svm import SVC
 from sklearn.svm import SVR
@@ -18,14 +26,6 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics.base import UndefinedMetricWarning
-
-from lib import data
-from lib import node as nd
-from lib import cpoint as cp
-from lib import cluster as cl
-from lib import aggregator as ag
-from lib.db import DatabaseConnection
-from lib.logger import log
 
 ClsProbs = namedtuple('ClsProbs', [ 'valid', 'probabilities' ])
 ClassifierFactory = namedtuple('ClassifierFactory', [ 'construct', 'kwargs' ])
@@ -64,24 +64,35 @@ class Machine:
                            self.args.window_pred,
                            self.args.window_trgt)
         #
-        # create the node and get its neighbors
+        # create the network of nodes (the source and its neighbors)
         #
-        with DatabaseConnection() as conn: 
-            source = nd.Node(self.nid, connection=conn)
-            cluster = self.nhandler[self.args.nselect]
-            self.net = nd.neighbors(source, self.args.neighbors, cluster, conn)
-            
+        cluster = self.nhandler[self.args.nselect]
+        self.network = nt.Network(self.nid, self.args.neighbors, cluster)
+
+        depth = self.network.depth()
+        if depth != self.args.neighbors:
+            msg = 'Depth not fully explored: {0} < {1}'
+            raise ValueError(msg.format(depth, self.args.neighbors))
+        
+        root = self.network.node
+        assert(root.nid == self.nid)
+        nodes = []
+        for i in self.network:
+            nodes.append(i.node)
+            if i.node != root:
+                i.align_and_shift(root)
+                
         #
-        # Build the observation matrix by looping over the source
-        # nodes time periods
+        # Build the observation matrix by looping over the root nodes
+        # time periods
         #
-        for (i, j) in source.range(window):
+        for (i, j) in root.range(window):
             try:
-                label = self._label(source, i, j)
-                features = self._features(self.net, i)
+                label = self._label(root, i, j)
+                features = self._features(nodes, i)
                 observations.append(features + label)
-            except ValueError as verr:
-                pass
+            except ValueError:
+                continue
             
         log.debug('observations: {0}'.format(len(observations)))
                 
@@ -124,7 +135,7 @@ class Machine:
                     ptr.__name__,  # implementation
                     x_train.shape, # shape
                     self.nid,      # node
-                    self.net,      # network
+                    repr(self.network),  # network
                     j,             # (k)fold
                     ]
                 assert(len(lst) == len(self.header_))
