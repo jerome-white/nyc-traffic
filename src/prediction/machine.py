@@ -34,8 +34,8 @@ class Machine:
     def __init__(self, nid, cli, aggregator):
         self.nid = nid
         self.cli = cli
-        self.net = None
         self.args = self.cli.args
+        self.network = None
         self.aggregator = aggregator
 
         self.nhandler = {
@@ -55,9 +55,6 @@ class Machine:
         self.classifiers_ = {}
         self.probs = ClsProbs(False, None)
         
-    def header(self):
-        return self.header_ + self.cli.options() + self.metrics()
-    
     def classify(self):
         observations = []
         window = nd.Window(self.args.window_obs,
@@ -100,6 +97,7 @@ class Machine:
         
     def predict(self, observations):
         predictions = []
+        network = repr(self.network)
 
         for i in self.args.classifier:
             try:
@@ -135,7 +133,7 @@ class Machine:
                     ptr.__name__,  # implementation
                     x_train.shape, # shape
                     self.nid,      # node
-                    repr(self.network),  # network
+                    network,       # network
                     j,             # (k)fold
                     ]
                 assert(len(lst) == len(self.header_))
@@ -160,7 +158,10 @@ class Machine:
 
     def __tostr(self, vals):
         return [ i.__name__ for i in vals ]
-    
+
+    def header(self):
+        return self.header_ + self.cli.options() + self.metrics()
+
     def metrics(self):
         return self.__tostr(self.metrics_)
 
