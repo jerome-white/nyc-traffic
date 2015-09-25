@@ -7,8 +7,11 @@ from lib import cli
 from lib import aggregator as ag
 from lib.node import nodegen
 from lib.logger import log
+from collections import namedtuple
 from lib.csvwriter import CSVWriter
 from multiprocessing import Pool
+
+Results = namedtuple('Results', [ 'keys', 'values', ])
 
 machine_ = {
     'classification': m.Classifier,
@@ -30,23 +33,12 @@ def f(*args):
     machine = machine_[cargs.args.model]
     aggregator = aggregator_[cargs.args.aggregator]
     model = machine(node, cargs, aggregator)
-    results = [] if index > 0 else model.header()
     try:
-        prediction = model.predict(model.classify())
-        results.append(prediction)
+        values = model.predict(model.classify())
+        keys = model.header()
+        return Results(keys, values)
     except ValueError as v:
         log.error(v)
-    
-    return results
-
-def hextract(results):
-    header = None
-    for entry in results:
-        if isinstance(entry[-1], list):
-            header = entry.pop()
-            break
-        
-    return (header, results)
 
 log.info('phase 1')
 log.info('db version {0}'.format(db.mark()))
@@ -78,16 +70,16 @@ with db.DatabaseConnection() as connection:
 #
 with Pool() as pool:
     results = pool.starmap(f, nodegen([ cargs ]), 1)
+    results = list(filter(None, results))
 
 log.info('phase 2')
 
-results = list(filter(None, results))
-(header, body) = hextract(results)
-    
-with CSVWriter(header, delimiter=';') as writer:
-    if cargs.args.header:
-        writer.writeheader()
-    for i in body:
-        writer.writerows(i)
+if results:
+    header = results[0].keys
+    with CSVWriter(header, delimiter=';') as writer:
+        if cargs.args.header:
+            writer.writeheader()
+        for i in results:
+            writer.writerows(i.values)
         
 log.info('phase 3')
