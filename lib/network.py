@@ -1,26 +1,28 @@
 from lib import db
 from lib import node as nd
 from lib import cluster as cl
+from itertools import chain
 from lib.logger import log
 
 class Network:
     def __build(self, level, cluster, db_conn, seen):
-        nid = self.node.nid
-        if level > 0 and nid not in seen:
+        if level > 0:
             try:
-                cl = cluster(nid, db_conn)
+                cl = cluster(self.node.nid, db_conn)
             except AttributeError as err:
                 log.error(err)
                 return
-
-            seen.add(nid)
-            for i in cl.neighbors.difference(seen):
+            
+            neighbors = cl.neighbors.difference(seen)
+            seen.update(neighbors)
+            
+            for i in neighbors:
                 try:
                     lag = cl.lag(i) + self.lag
                 except ValueError as err:
                     log.error(err)
                     continue
-
+                
                 child = Network(i, level - 1, cluster, lag, db_conn, seen)
                 self.children.add(child)
 
@@ -35,6 +37,7 @@ class Network:
         self.node = nd.Node(nid, db_conn)
         if not seen:
             seen = set()
+            seen.add(nid)
         self.__build(level, cluster, db_conn, seen)
         
         if close:
@@ -58,8 +61,9 @@ class Network:
         return next(self)
 
     def __next__(self):
+        for i in self.children:
+            yield from i
         yield self
-        yield from self.children
    
     def depth(self):
         d = [ 0 ] + [ 1 + x.depth() for x in self.children ]
