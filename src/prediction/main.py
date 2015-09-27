@@ -33,12 +33,15 @@ def f(*args):
     machine = machine_[cargs.args.model]
     aggregator = aggregator_[cargs.args.aggregator]
     model = machine(node, cargs, aggregator)
+
+    keys = model.header()
+    values = []
     try:
         values = model.predict(model.classify())
-        keys = model.header()
-        return Results(keys, values)
     except ValueError as v:
         log.error(v)
+
+    return Results(keys, values)
 
 log.info('phase 1')
 log.info('db version {0}'.format(db.mark()))
@@ -70,7 +73,7 @@ with db.DatabaseConnection() as connection:
 #
 with Pool() as pool:
     results = pool.starmap(f, nodegen([ cargs ]), 1)
-    results = list(filter(None, results))
+    results = list(filter(lambda x: x.values, results))
 
 log.info('phase 2')
 
