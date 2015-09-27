@@ -72,7 +72,7 @@ class Node:
             connection = db.DatabaseConnection().resource
             
         self.readings = self.__get_readings(connection)
-        self.neighbors = get_neighbors(self.nid, connection)
+        # self.neighbors = get_neighbors(self.nid, connection)
         self.name = self.__get_name(connection)
 
         if close:
