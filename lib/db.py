@@ -34,4 +34,25 @@ def process(sql, args=None):
     s = ' '.join(sql)
     
     return s.format(*args) if args else s
-    
+
+#
+# Generate the "operational" table, which is a filtered view of the
+# node table. It contains a subset of segments that we want to
+# consider.
+#
+def genop(frequency, table='operational'):
+    with DatabaseConnection() as connection:
+        sql = [
+            [ 'DELETE FROM {0}' ],
+            [ 'INSERT INTO {0} (id, name, segment)'
+              'SELECT n.id, n.name, n.segment',
+              'FROM node AS n',
+              'JOIN quality AS q ON n.id = q.node',
+              'WHERE q.frequency <= {0}'.format(frequency),
+            ]
+        ]
+        
+        with DatabaseCursor(connection) as cursor:
+            for i in sql:
+                statement = process(i, [ table ])
+                cursor.execute(statement)
