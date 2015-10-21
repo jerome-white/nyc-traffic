@@ -1,0 +1,5 @@
+prefix,dest,type,default,action,choices
+table,table,,reading,,reading|node
+url,url,,http://207.251.86.229/nyc-links-cams/TrafficSpeed.php,,
+input,input,,,,
+output,output,,,,
