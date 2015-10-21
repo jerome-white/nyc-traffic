@@ -11,3 +11,4 @@ model,model,,,,classification|estimation
 print-header,header,,,store_true,
 no-print-header,header,,,store_false,
 speed-threshold,threshold,float,-0.002,
+reporting-threshold,reporting,float,0,

@@ -27,7 +27,7 @@ def f(*args):
     return Mapping(nid, rtimes)
 
 with Pool() as pool:
-    seconds = 60
+    seconds = constant.minute
     results = pool.starmap(f, nd.nodegen([ seconds ]), 1)
 
 results = filter(lambda x: x.inter is not pd.NaT, results)
@@ -45,8 +45,10 @@ for i in (max, min, np.nanmean, np.nanstd):
     log.info('{0}: {1:.2f}'.format(i.__name__, i(xvals)))
 
 plt.xlim((0, 10))
+plt.xticks(range(11))
 plt.xlabel('Reporing time (min)')
 plt.ylabel('Fraction of segments')
+plt.grid()
 plt.plot(xvals, yvals)
 
 plt.savefig('reporting-times.pdf', bbox_inches='tight')

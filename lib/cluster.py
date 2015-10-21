@@ -1,12 +1,12 @@
 import numpy as np
 import pandas as pd
+import lib.node as nd
 import scipy.constants as constant
 import statsmodels.tsa.vector_ar.var_model as vm
 
 from numpy.linalg import LinAlgError
 
 from lib import db
-from lib import node as nd
 from lib.logger import log
 
 threshold_ = 0.01

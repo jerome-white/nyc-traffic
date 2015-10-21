@@ -7,3 +7,4 @@ cluster-tld,clusters,,,,
 filter,gfilter,,,append,
 plot-directory,plotdir,,,,
 stats-file,stfile,,,,
+display,display,,monitor,,monitor|paper|slides

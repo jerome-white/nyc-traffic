@@ -1,5 +1,6 @@
 import os
 import operator
+import collections
 
 import numpy as np
 import pandas as pd
@@ -10,6 +11,8 @@ from pathlib import Path
 from lib import cli
 from lib import utils
 # from lib.csvwriter import CSVWriter
+
+PlotArgs = collections.namedtuple('PlotArgs', ['figsize', 'fontsize'])
 
 def padding(view, thresh=0.1):
     lst = []
@@ -33,14 +36,17 @@ def plotter(df, fname, ylabel, args):
     
     plt.set_xlabel('Traffic segments', fontdict=fontdict)
     plt.set_ylabel(ylabel, fontdict=fontdict)
-    plt.set_ylim(padding(df))
-    # plt.grid()
-    plt.tick_params(
-        axis='x',          # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
-        bottom='on',       # ticks along the bottom edge are off
-        top='off',         # ticks along the top edge are off
-        labelbottom='off') # labels along the bottom edge are off
+    # plt.set_ylim(padding(df))
+    plt.grid(axis='y')
+
+    (x, y) = args['figsize']
+    if x * y < 50:
+        plt.tick_params(
+            axis='x',          # changes apply to the x-axis
+            which='both',      # both major and minor ticks are affected
+            bottom='on',       # ticks along the bottom edge are off
+            top='off',         # ticks along the top edge are off
+            labelbottom='off') # labels along the bottom edge are off
     
     utils.mkplot_(plt, fname)
 
@@ -71,9 +77,12 @@ def performance(df, args, output_d, ext='pdf'):
         f = 'raw-{0}.{1}'.format(source, ext)
         fname = os.path.join(output_d, f)
         view = df_mean[source].sort(ascending=False, inplace=False)
+        for i in args['yticks']:
+            (j, k) = [ len(x) for x in (view, view[view >= i]) ]
+            print('{0:.2f} {1:4d} {2:.3f}'.format(i, k, k / j))
         plotter(view[view != 0], fname, 'MCC', args)
         
-        print(source, df_mean[source].mean(), df_mean[source].std())
+        print('+', source, df_mean[source].mean(), df_mean[source].std())
         
         for target in df_mean.columns.tolist():
             if source == target:
@@ -84,8 +93,8 @@ def performance(df, args, output_d, ext='pdf'):
             view.sort(ascending=False)
 
             (_, p) = stats.ttest_ind(df_mean[source], df_mean[target])
-            print(source, target, view.mean(), view.std(), p < 0.05)
-            print(*distribution(view))
+            # print('-', source, target, view.mean(), view.std(), p < 0.05)
+            # print(*distribution(view))
         
             plotter(view, fname, 'Difference in MCC', args)
 
@@ -116,6 +125,12 @@ def anova(df, cluster_directory):
                 msg += fmt.format(v, p, k - 1, N - k, issig(p))
             print(msg)
 
+plotargs = {
+    # keys must be valid --display options
+    'monitor': PlotArgs((120, 20), 36),
+    'paper': PlotArgs((7, 3), 10),
+    }
+            
 user = cli.CommandLine(cli.optsfile('prediction-plot'))
 if not user.args.gfilter:
     user.args.gfilter = []
@@ -129,12 +144,13 @@ df = grouped.agg([ np.mean, stats.sem ]).unstack(0)
 
 if user.args.gfilter:
     args = {
-        'figsize': (7, 3),
-        'fontsize': 10,
         'kind': 'bar',
         'yerr': df['sem'],
         'ylim': (0, 1),
+        'yticks': np.linspace(0, 1, 11),
     }
+    args.update(plotargs[user.args.display]._asdict())
+    
     comparison(df, args, user.args.plotdir)
     performance(df, args, user.args.plotdir)
 

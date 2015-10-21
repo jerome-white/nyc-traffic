@@ -4,7 +4,12 @@ import random
 import matplotlib.pyplot as plt
 
 def mkplot_(plot, fname):
-    plot.get_figure().savefig(fname, bbox_inches='tight')
+    fig = plot.get_figure()
+    
+    # plt.tight_layout()
+    # fig.set_tight_layout({'pad': 1.08 * 2})
+    fig.savefig(fname, bbox_inches='tight')
+    
     plt.close('all')
 
 def mkplot(frame, fname, heading, ynorm=False, **kwargs):
