@@ -6,6 +6,9 @@ from lib import cli
 cargs = cli.CommandLine(cli.optsfile('storage'))
 args = cargs.args
 
+#
+# Open and parse the data file
+#
 with open(args.input, mode='rb') as fp:
     data = pickle.load(fp)
     
@@ -17,14 +20,16 @@ for i in data:
     values.append([ i[x] for x in keys ])
 assert(keys and values)
 
+#
+# Create the SQL statement and execute!
+#
 s = [ '%s' ] * len(keys)
-# sql = [
-#     'INSERT IGNORE INTO readings ({0})',
-#     'VALUES ({1})'
-#     ]
-# sql = db.process(sql, *[ ','.join(x) for x in (keys, s) ])
-sql = 'INSERT IGNORE INTO reading ({0}) VALUES ({1})'
-sql = sql.format(*[ ','.join(x) for x in (keys, s) ])
+opts = [ ','.join(x) for x in (keys, s) ]
+sql = [
+    'INSERT IGNORE INTO reading ({0})',
+    'VALUES ({1})'
+]
+sql = db.process(sql, opts)
 
 with db.DatabaseConnection(user='social') as connection:
     with db.DatabaseCursor(connection) as cursor:

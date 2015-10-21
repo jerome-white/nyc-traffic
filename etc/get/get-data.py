@@ -40,7 +40,7 @@ tables = {
 
 cargs = cli.CommandLine(cli.optsfile('storage'))
 args = cargs.args
-assert(args.table in tables)
+tbl = tables[args.table]
 
 #
 # Figure out whether we're creating new data, or adding to existing
@@ -57,9 +57,9 @@ else:
 # Get the remote data and parse it
 #
 doc = parse(urlopen(args.url))
-for node in doc.getElementsByTagName('Speed'):
+for node in doc.getElementsByTagName(args.root):
     row = {}
-    for (key, value) in tables[args.table].items():
+    for (key, value) in tbl.items():
         attr = node.getAttribute(value.name)
         row[key] = value.process(attr)
     data.append(row)
