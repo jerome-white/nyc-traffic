@@ -1,9 +1,12 @@
 import time
 import pickle
+import itertools
 import collections as cl
 
 from lib import cli
 from pathlib import Path
+from lib.logger import log
+from urllib.error import URLError
 from urllib.request import urlopen
 from xml.dom.minidom import parse
 
@@ -54,9 +57,23 @@ else:
     data = []
 
 #
-# Get the remote data and parse it
+# Get the remote data...
 #
-doc = parse(urlopen(args.url))
+for i in itertools.count(0):
+    try:
+        doc = parse(urlopen(args.url))
+        break
+    except URLError as u:
+        log.critical(u)
+
+    if i > args.retries:
+        exit()
+        
+    time.sleep(args.timeout)
+
+#
+# ... and parse it
+#
 for node in doc.getElementsByTagName(args.root):
     row = {}
     for (key, value) in tbl.items():
