@@ -8,6 +8,7 @@ from lib import aggregator as ag
 from lib.node import nodegen
 from lib.logger import log
 from collections import namedtuple
+from configparser import ConfigParser
 from lib.csvwriter import CSVWriter
 from multiprocessing import Pool
 
@@ -26,13 +27,14 @@ aggregator_ = {
 }
     
 def f(*args):
-    (index, node, (cargs,)) = args
+    (index, node, (config,)) = args
     
     log.info('node: {0}'.format(node))
 
-    machine = machine_[cargs.args.model]
-    aggregator = aggregator_[cargs.args.aggregator]
-    model = machine(node, cargs, aggregator)
+    opts = config['machine']
+    machine = machine_[opts['model']]
+    aggregator = aggregator_[opts['feature-transform']]
+    model = machine(node, config, aggregator)
 
     keys = model.header()
     values = []
@@ -47,23 +49,26 @@ log.info('phase 1')
 log.info('db version {0}'.format(db.mark()))
 
 cargs = cli.CommandLine(cli.optsfile('prediction'))
-db.genop(cargs.args.reporting)
+config = ConfigParser()
+config.read(cargs.args.config)
+
+db.genop(int(config['parameters']['intra-reporting']))
 
 #
 # Begin the processing!
 #
 with Pool() as pool:
-    results = pool.starmap(f, nodegen([ cargs ]), 1)
-    results = list(filter(lambda x: x.values, results))
+    results = pool.starmap(f, nodegen([ config ]), 1)
+    results = [ x for x in results if x.values ]
+    assert(results)
 
 log.info('phase 2')
 
-if results:
-    header = results[0].keys
-    with CSVWriter(header, delimiter=';') as writer:
-        if cargs.args.header:
-            writer.writeheader()
-        for i in results:
-            writer.writerows(i.values)
-        
+header = results[0].keys
+with CSVWriter(header, delimiter=';') as writer:
+    if config['output'].getboolean(['print-header']):
+        writer.writeheader()
+    for i in results:
+        writer.writerows(i.values)
+            
 log.info('phase 3')
