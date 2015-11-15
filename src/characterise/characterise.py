@@ -1,4 +1,5 @@
 import pickle
+import collections
 
 import numpy as np
 import pandas as pd
@@ -9,6 +10,7 @@ import matplotlib.pyplot as plt
 from lib import db
 from lib import cli
 from lib import utils
+from lib import cpoint
 # from lib import data
 from lib import node as nd
 from pathlib import Path
@@ -16,105 +18,116 @@ from lib.logger import log
 from lib.window import Window
 from multiprocessing import Pool
 
-class Aggregate:
-    def collect(self, df):
-        raise NotImplementedError()
-
-    def reduce(self, lst):
-        raise NotImplementedError()
-
-class Count(Aggregate):
-    def collect(self, df):
-        return df.sum()
-
-    def reduce(self, lst):
-        return sum(lst)
-    
-class PerDay(Aggregate):
-    def collect(self, df):
-        rng = df.index[-1] - df.index[0]
-        days = rng.total_seconds() / constant.day
-    
-        return df.sum() / days
-
-    def reduce(self, lst):
-        return np.mean(lst)
-
 #############################################################################
 
 def loop(window):
     for i in range(window.prediction):
         for j in range(1, window.target):
             yield Window(j, i, j)
-    
-def g(df, *args):
-    assert(type(df) == np.ndarray)
 
-    (window, threshold) = args
+def rapply(df, window, classify):
+    '''
+    determine whether a window constitutes a traffic event
+    '''
+
+    assert(type(df) == np.ndarray)
 
     segments = (df[:window.target], df[-window.target:])
     if np.isnan(segments).any():
         return np.nan
     (left, right) = [ x.mean() for x in segments ]
-    change = (right - left) / left
-    
-    return change <= threshold
+
+    return classify(window.prediction + 1, left, right)
     
 def f(*args):
-    (index, nid, (window, threshold, agg)) = args
+    (index, nid, (window, classify, freq)) = args
     
     log.info('{0} create'.format(nid))
 
     node = nd.Node(nid)
-    events = np.zeros((window.prediction, window.target))
+    stats = []
+    for _ in range(window.prediction):
+        stats.append([ 0 for _ in range(window.target) ])
 
-    #
-    # determine which windows constitute a traffic event
-    #
     for i in loop(window):
-        args = (i, threshold)
-        df = pd.rolling_apply(node.readings.speed, len(i), g, args=args)
-        df.dropna(inplace=True)
-
-        log.info('{0}: {1} {2}/{3}'.format(nid, i, df.sum(), df.count()))
-            
-        events[i.prediction][i.target] = agg(df)
+        args = [ i, classify ]
+        df = pd.rolling_apply(node.readings.speed, len(i), rapply, args=args)
+        log.info('{0} {1} {2} {3}'.format(nid, i, df.sum(), df.count()))
+        stats[i.prediction][i.target] = df.resample(freq, how=sum)
         
-    return events
+    return stats
+
+def g(*args):
+    (prediction, target, data, aggregate) = args
+    
+    return aggregate(data[prediction][target])
+
+def var2std(df):
+    d = pd.DataFrame()
+    for (i, j) in enumerate([ 'Target', 'Prediction' ]):
+        d[j] = np.sqrt(df.sum(i))
+        
+    return d
+
+def heatplot(fig, directory, fname, labels, extension='png'):
+    fig.set(**labels)
+    f = Path(args.figures, fname).with_suffix('.' + extension)
+    utils.mkplot_(fig, str(f))
 
 #############################################################################
 
 cargs = cli.CommandLine(cli.optsfile('chgpt'))
 args = cargs.args
-
 window = Window(args.window_obs, args.window_pred, args.window_trgt)
-aggregate = PerDay()
 
 if args.resume:
     with open(args.resume, mode='rb') as fp:
         observations = pickle.load(fp)
 else:
     db.genop(args.reporting)
-
-    opts = [ window, args.threshold, aggregate.collect ]
+    classifier = cpoint.Acceleration(args.threshold)    
+    opts = [ window, classifier.classify, 'D' ]
+    
     with Pool() as pool:
         observations = pool.starmap(f, nd.nodegen(opts))
-        observations = list(filter(lambda x: x.size > 0, observations))
-        assert(observations)
-
+        
     if args.pickle:
         with open(args.pickle, mode='wb') as fp:
             pickle.dump(observations, fp)
 
-processed = np.zeros((window.prediction, window.target))
-for i in loop(window):
-    row = [ x[i.prediction][i.target] for x in observations ]
-    assert(processed[i.prediction][i.target] == 0)
-    processed[i.prediction][i.target] = aggregate.reduce(row)
-processed = np.delete(processed, 0, axis=1)
+#
+# Collect the data
+#
+
+data = np.zeros((window.prediction, window.target))
+columns = list(range(window.target))
+df_mean = pd.DataFrame(data=data.copy(), columns=columns)
+df_var = pd.DataFrame(data=data.copy(), columns=columns)
+
+for w in loop(window):
+    (_, i, j) = w
+    row = [ x[i][j].mean() for x in observations ]
+    df_mean.loc[i][j] = np.mean(row)
+    df_var.loc[i][j] = np.var(row)
+#    print(w, np.mean(row), '\n', df_mean, '\n')
     
-# kwargs = { 'ylabel': 'Prediction window', 'xlabel': 'Target window' }
-fig = sns.heatmap(processed) # , kwargs=kwargs)
-fname = Path(args.figures, 'pwin-twin').with_suffix('.pdf')
-utils.mkplot_(fig, str(fname))
-        
+for i in (df_mean, df_var):
+    i.drop(0, axis=1, inplace=True)
+
+#
+# Plot
+#
+
+plots = [
+    { 'name': 'pwin-twin',
+      'figure': sns.heatmap(df_mean.iloc[::-1], annot=True),
+      'labels': { 'xlabel': 'Target window', 'ylabel': 'Prediction window' },
+    },
+    { 'name': 'variance',
+      'figure': var2std(df_var).plot(),
+      'labels': { 'xlabel': 'Window size', 'ylabel': 'Std. Deviation' },
+    },
+]
+
+for i in plots:
+    heatplot(i['figure'], args.figures, i['name'], i['labels'])
