@@ -14,7 +14,7 @@ class DatabaseConnection(Database):
             'user': user,
             'db': db,
             'autocommit': True,
-            'unix_socket': '/usr/local/mysql/data/mysql.sock',
+            # 'unix_socket': '/usr/local/mysql/data/mysql.sock',
         }
         self.resource = pymysql.connect(**kwargs)
 
@@ -40,18 +40,23 @@ def process(sql, args=None):
 # node table. It contains a subset of segments that we want to
 # consider.
 #
-def genop(frequency, table='operational'):
-    with DatabaseConnection() as connection:
-        sql = [
-            [ 'DELETE FROM {0}' ],
-            [ 'INSERT INTO {0} (id, name, segment)'
-              'SELECT n.id, n.name, n.segment',
-              'FROM node AS n',
-              'JOIN quality AS q ON n.id = q.node',
-              'WHERE q.frequency <= {0}'.format(frequency),
-            ]
+def genop(frequency=0, table='operational'):
+    # First delete existing values...
+    sql = [[ 'DELETE FROM {0}' ]]
+
+    # ... then insert new values
+    insert = [ 'INSERT INTO {0} (id, name, segment)',
+               'SELECT n.id, n.name, n.segment',
+               'FROM node AS n',
+    ]
+    if frequency > 0:
+        join = [ 'JOIN quality AS q ON n.id = q.node',
+                 'WHERE q.frequency <= {0}'.format(frequency)
         ]
-        
+        insert.extend(join)
+    sql.append(insert)
+
+    with DatabaseConnection() as connection:
         with DatabaseCursor(connection) as cursor:
             for i in sql:
                 statement = process(i, [ table ])
