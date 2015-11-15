@@ -13,16 +13,20 @@ done
 
 # build an array of cluster combinations beforehand (since some
 # combinations won't make sense if blindly added to a loop)
-for owindow in 10; do
-    for pwindow in `seq 3 3 12`; do
-	for twindow in 5; do
-	    for thresh in -0.002; do
-		c="$owindow $pwindow $twindow $thresh"
-		combo=( ${combo[@]}  `sed -e"s/ /$sep/g" <<< $c` )
-	    done
-	done
-    done
-done
+# for owindow in 10; do
+#     for pwindow in `seq 3 3 12`; do
+# 	for twindow in 5; do
+# 	    for thresh in -0.002; do
+# 		c="$owindow $pwindow $twindow $thresh"
+# 		combo=( ${combo[@]}  `sed -e"s/ /$sep/g" <<< $c` )
+# 	    done
+# 	done
+#     done
+# done
+combo=(
+    10:6:5:-0.002:120
+    # 15:15:3:-0.002:120
+    )
 
 # cluster for each combination
 for i in ${combo[@]}; do
@@ -30,26 +34,33 @@ for i in ${combo[@]}; do
     echo "[`date`] ${c[@]}"
     
     dir=$NYCTRAFFICLOG/cluster/`sed -e's/ /\//g' <<< ${c[@]}`
+    mkdir --parents $dir
+    
     pkl=$dir/observations.pkl
     
-    mkdir --parents $dir
-
     if [ $execute ]; then
 	python3 $pth/cluster.py \
     	    --observation-window ${c[0]} \
     	    --prediction-window ${c[1]} \
     	    --target-window ${c[2]} \
     	    --speed-threshold ${c[3]} \
+	    --reporting-threshold ${c[4]} \
     	    --pickle $pkl
     fi
 
     if [ $plot ]; then
-	for j in `seq 2 9`; do
+	# for j in `seq 2 9`; do
+	for j in 0; do
     	    python3 $pth/cluster.py \
-		--resume $pkl \
-		--fig-directory $dir \
-		--clusters $j > \
-		$dir/cluster-$j.csv || \
+		    --observation-window ${c[0]} \
+    		    --prediction-window ${c[1]} \
+    		    --target-window ${c[2]} \
+    		    --speed-threshold ${c[3]} \
+		    --reporting-threshold ${c[4]} \
+		    --resume $pkl \
+		    --figure-directory $dir \
+		    --clusters $j > \
+		    $dir/cluster-$j.csv || \
 		exit
 	done
     fi
