@@ -9,14 +9,6 @@ from tempfile import NamedTemporaryFile
 from lib.logger import log
 from statsmodels.tsa import stattools as st
 
-Window = coll.namedtuple('Window', [ 'observation', 'prediction', 'target' ])
-
-def winsum(window):
-    return window.observation + window.prediction + window.target
-
-def winpivot(window):
-    return 2 * window.target + window.prediction
-
 def getnodes(connection):
     sql = 'SELECT id FROM operational ORDER BY id ASC'
     
