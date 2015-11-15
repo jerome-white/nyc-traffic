@@ -16,7 +16,9 @@ class Logger:
         if not self.__instance:
             fmt = [
                 '%(levelname)s:%(asctime)s',
-                '%(process)d:%(filename)s:%(lineno)d %(message)s'
+                '%(process)d',
+                '%(filename)s:%(lineno)d',
+                '%(message)s'
             ]
             logging.basicConfig(level=self.__level, format=' '.join(fmt))
             self.log = logging

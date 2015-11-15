@@ -9,7 +9,8 @@ from numpy.linalg import LinAlgError
 from lib import db
 from lib.logger import log
 
-threshold_ = 0.01
+_threshold = 0.01
+_maxlags = 5
 
 class Cluster:
     def __init__(self, nid, connection=None, freq='T'):
@@ -67,7 +68,7 @@ class Cluster:
         
         return data.resample(freq)
 
-    def lag(self, nid, threshold=threshold_):
+    def lag(self, nid, threshold=_threshold):
         sql = ('SELECT ROUND(AVG(travel_time) / {0}) AS lag ' +
                'FROM reading ' +
                'WHERE node = {1}')
@@ -81,12 +82,12 @@ class Cluster:
                 return row['lag']
     
 class VARCluster(Cluster):
-    def __init__(self, nid, connection=None, freq='T', maxlags=20):
+    def __init__(self, nid, connection=None, freq='T', maxlags=_maxlags):
         super().__init__(nid, connection, freq)
 
         endog = self.readings.dropna()
         if endog.empty:
-            raise AttributeError('Endogenous variable is empty')
+            raise AttributeError('Empty endogenous variable')
         try:
             model = vm.VAR(endog=endog)
             fit = model.fit(maxlags=maxlags)
@@ -94,7 +95,7 @@ class VARCluster(Cluster):
         except (LinAlgError, ValueError) as err:
             raise AttributeError(err)
 
-    def lag(self, nid, threshold=threshold_):
+    def lag(self, nid, threshold=_threshold):
         idxs = [ 0, self.readings.columns.tolist().index(str(nid)) ]
 
         #
@@ -112,13 +113,13 @@ class VARCluster(Cluster):
         return np.argmax(vals[0])
 
 class HybridCluster(VARCluster):
-    def __init__(self, nid, connection=None, freq='T', maxlags=20):
+    def __init__(self, nid, connection=None, freq='T', maxlags=_maxlags):
         super().__init__(nid, connection, freq, maxlags)
 
-    def lag(self, nid, threshold=threshold_):
+    def lag(self, nid, threshold=_threshold):
         super().lag(nid, threshold)
 
         # Getting to this point means VARCluster's lag didn't raise an
-        # exception. "Linearization" then returns Cluster's lag
+        # exception. "Linearization" then returns Cluster's lag.
         
         return super(VARCluster, self).lag(nid, threshold)
