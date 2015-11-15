@@ -10,12 +10,12 @@ from collections import OrderedDict
 from multiprocessing import Pool
 from sklearn.cluster import KMeans
 
+from lib import db
 from lib import cli
 from lib import utils
 from lib import data
 from lib import node as nd
 from lib import cpoint as cp
-from lib.db import DatabaseConnection
 from lib.logger import log
 from lib.csvwriter import CSVWriter
 
@@ -33,7 +33,7 @@ def g(df, *args):
     return cp.changed(window.prediction, left, right, threshold)
     
 def f(*args):
-    (index, nid, (window, oneday, threshold)) = args
+    (index, nid, (window, oneday, threshold, agg)) = args
     
     log.info('{0} create'.format(nid))
 
@@ -53,18 +53,22 @@ def f(*args):
     # aggregate the results
     #
     log.info('{0} aggregate'.format(nid))
+
+    if df.empty:
+        log.error('{0}: No observations'.format(nid))
+        return []
     
-    vals = []
-    if not df.empty:
-        totals = OrderedDict(zip(range(oneday), [0] * oneday))
+    # items = zip(range(oneday), [ [] ] * oneday)
+    totals = OrderedDict()
+    for i in range(oneday):
+        totals[i] = [ 0 ]
         
-        for i in df.index:
-            key = cp.bucket(i)
-            assert(key in totals)
-            totals[key] += df.ix[i]
-            
-        vals.extend(totals.values())
-        vals.append(nid) # this is important
+    for i in df.index:
+        key = cp.bucket(i)
+        totals[key].append(df.ix[i])
+        
+    vals = [ agg(x) for x in totals.values() ]
+    vals.append(nid) # this is important
         
     return vals
 
@@ -77,8 +81,10 @@ window = nd.Window(args.window_obs, args.window_pred, args.window_trgt)
 if args.resume:
     with open(args.resume, mode='rb') as fp:
         observations = pickle.load(fp)
+    (measurements, nodes) = data.cleanse(observations)
 else:
-    opts = [ window, oneday, args.threshold ]
+    db.genop(args.reporting)
+    opts = [ window, oneday, args.threshold, np.mean ]
     with Pool() as pool:
         observations = pool.starmap(f, nd.nodegen(opts))
         observations = list(filter(None, observations))
@@ -87,22 +93,38 @@ else:
     if args.pickle:
         with open(args.pickle, mode='wb') as fp:
             pickle.dump(observations, fp)
-
-# if args.figures and args.verbose:
-#     for (nid, tally) in observations:
-#         assert(len(tally) == oneday)
-#         idx = pd.date_range(start='12:00', periods=oneday, freq='T')
-#         df = pd.Series(data=tally, index=idx)
-#         elements = [
-#             [ '} |', str(nid) ],
-#             [ '}', window.observation ],
-#             [ '}', window.prediction ],
-#             [ '}', window.target ],
-#         ]
-#         fname = utils.mkfname(args.figures, nid)
-#         title = utils.mktitle(elements)
             
-#         utils.mkplot(df, fname, title, False, figsize=(12, 8))
+if args.figures: # and args.verbose:
+    aggregate = []
+    for i in range(oneday):
+        vals = [ x[i] for x in observations ]
+        aggregate.append(np.mean(vals))
+    aggregate.append(0)
+    # aggregate = measurements.mean(axis=0).tolist() + [ 0 ]
+    # log.debug(len(measurements), len(aggregate))
+    assert(len(aggregate) == oneday + 1)
+    observations.append(aggregate)
+    
+    for i in observations:
+        nid = i.pop()        
+        assert(len(i) == oneday)
+        
+        idx = pd.date_range(start='00:00', periods=oneday, freq='T')
+        df = pd.Series(data=i, index=idx)
+
+        fname = utils.mkfname(args.figures, nid, 'csv')
+        df.to_csv(fname)
+        
+        elements = [
+            [ '} |', str(nid) ],
+            [ '}', window.observation ],
+            [ '}', window.prediction ],
+            [ '}', window.target ],
+        ]
+        fname = utils.mkfname(args.figures, nid)
+        title = utils.mktitle(elements)
+            
+        utils.mkplot(df, fname, title, False, figsize=(12, 8))
 
 if args.clusters > 0:
     (measurements, nodes) = data.cleanse(observations)
