@@ -77,12 +77,16 @@ def performance(df, args, output_d, ext='pdf'):
         f = 'raw-{0}.{1}'.format(source, ext)
         fname = os.path.join(output_d, f)
         view = df_mean[source].sort(ascending=False, inplace=False)
-        for i in args['yticks']:
-            (j, k) = [ len(x) for x in (view, view[view >= i]) ]
-            print('{0:.2f} {1:4d} {2:.3f}'.format(i, k, k / j))
+        # for i in args['yticks']:
+        #     (j, k) = [ len(x) for x in (view, view[view >= i]) ]
+        #     print('{0:.2f} {1:4d} {2:.3f}'.format(i, k, k / j))
         plotter(view[view != 0], fname, 'MCC', args)
         
-        print('+', source, df_mean[source].mean(), df_mean[source].std())
+        print('+', source,
+              df_mean[source].count(),
+              df_mean[source].mean(),
+              df_mean[source].std(),
+              df_mean[source].sem())
         
         for target in df_mean.columns.tolist():
             if source == target:
@@ -139,7 +143,7 @@ raw = pd.DataFrame.from_csv(user.args.data, sep=';', index_col=None)
 assert(all([ x in raw.columns for x in user.args.gfilter]))
 raw = raw.loc[raw['confusion_matrix'] != np.nan]
 
-grouped = raw.groupby(user.args.gfilter + ['node'])['matthews_corrcoef']
+grouped = raw.groupby(user.args.gfilter + ['node'])[user.args.metric]
 df = grouped.agg([ np.mean, stats.sem ]).unstack(0)
 
 if user.args.gfilter:
