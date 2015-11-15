@@ -1,32 +1,31 @@
-import os
-
-import machine as m
+import sys
+import machine
 
 from lib import db
 from lib import cli
-from lib import aggregator as ag
+from lib import aggregator
+from csv import DictWriter
 from lib.node import nodegen
 from lib.logger import log
 from collections import namedtuple
 from configparser import ConfigParser
-from lib.csvwriter import CSVWriter
 from multiprocessing import Pool
 
 Results = namedtuple('Results', [ 'keys', 'values', ])
 
 machine_ = {
-    'classification': m.Classifier,
-    'estimation': m.Estimator,
+    'classification': machine.Classifier,
+    'estimation': machine.Estimator,
 }
 
 aggregator_ = {
-    'simple': ag.simple,
-    'change': ag.change,
-    'average': ag.average,
-    'difference': ag.difference,
+    'simple': aggregator.simple,
+    'change': aggregator.change,
+    'average': aggregator.average,
+    'difference': aggregator.difference,
 }
     
-def f(*args):
+def f(args):
     (index, node, (config,)) = args
     
     log.info('node: {0}'.format(node))
@@ -57,18 +56,14 @@ db.genop(int(config['parameters']['intra-reporting']))
 #
 # Begin the processing!
 #
-with Pool() as pool:
-    results = pool.starmap(f, nodegen([ config ]), 1)
-    results = [ x for x in results if x.values ]
-    assert(results)
-
 log.info('phase 2')
 
-header = results[0].keys
-with CSVWriter(header, delimiter=';') as writer:
-    if config['output'].getboolean(['print-header']):
-        writer.writeheader()
-    for i in results:
-        writer.writerows(i.values)
-            
-log.info('phase 3')
+with Pool() as pool:
+    writer = None
+    for results in pool.imap_unordered(f, nodegen([ config ]), 1):
+        if results.values:
+            if not writer:
+                writer = DictWriter(sys.stdout, results.keys, delimiter=';')
+                if config['output'].getboolean('print-header'):
+                    writer.writeheader()
+            writer.writerows(results.values)
