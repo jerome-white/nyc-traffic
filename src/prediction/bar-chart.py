@@ -18,7 +18,7 @@ Params = collections.namedtuple('Params', ['directory', 'slices'])
 
 d = collections.OrderedDict([
     ('implementation', 'RandomForestClassifier'),
-    ('prediction', 5),
+    ('prediction', 9),
 ])
 p = Params('2015_11-15_0943.samjam.local', d)
 
@@ -36,8 +36,10 @@ raw = pd.DataFrame.from_csv(str(dat), sep=';', index_col=None)
 
 grouped = raw.groupby(groups)[list(metrics.keys())]
 
-aggregate = grouped.agg([ np.mean ])
-df = aggregate.loc[list(p.slices.values())]
+df = grouped.agg([ np.mean ])
+for i in p.slices.values():
+    df = df.loc[i]
+
 df = df.unstack(level=pivot)
 df.rename(columns=lambda x: metrics[x] if x in metrics else x, inplace=True)
 
