@@ -9,11 +9,6 @@ from tempfile import NamedTemporaryFile
 from lib.logger import log
 from statsmodels.tsa import stattools as st
 
-Window = coll.namedtuple('Window', [ 'observation', 'prediction', 'target' ])
-
-def winsum(window):
-    return window.observation + window.prediction + window.target
-
 def getnodes(connection):
     sql = 'SELECT id FROM operational ORDER BY id ASC'
     
@@ -71,9 +66,9 @@ class Node:
         if close:
             connection = db.DatabaseConnection().resource
             
+        self.name = self.__get_name(connection)            
         self.readings = self.__get_readings(connection)
         # self.neighbors = get_neighbors(self.nid, connection)
-        self.name = self.__get_name(connection)
 
         if close:
             connection.close()
@@ -99,6 +94,9 @@ class Node:
         
         with db.DatabaseCursor(connection) as cursor:
             cursor.execute(sql)
+            if cursor.rowcount != 1:
+                err = '{0} does not exist!'.format(self.nid)
+                raise AttributeError(err)
             row = cursor.fetchone()
 
         return row['name']

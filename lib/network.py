@@ -68,7 +68,3 @@ class Network:
     def depth(self):
         d = [ 0 ] + [ 1 + x.depth() for x in self.children ]
         return max(d)
-
-    def align_and_shift(self, source):
-        self.node.readings.shift(self.lag)
-        self.node.align(source, True)

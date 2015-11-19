@@ -43,11 +43,15 @@ for i in ${logs[@]}; do
 	mkdir $i/fig
     fi
 
-    python3 $NYCTRAFFIC/src/prediction/plot.py \
-	    --data $datfile \
-	    --plot-directory $fig \
-	    --cluster-tld $NYCTRAFFICLOG/cluster \
-	    $display \
-	    `toopts filter ${filters[@]}` ||
-	break
+    for j in f1_score matthews_corrcoef; do
+	echo $j
+	python3 $NYCTRAFFIC/src/prediction/plot.py \
+		--data $datfile \
+		--plot-directory $fig \
+		--cluster-tld $NYCTRAFFICLOG/cluster \
+		--metric  $j \
+		$display \
+		`toopts filter ${filters[@]}` ||
+	    exit
+    done
 done

@@ -1,38 +1,39 @@
-import os
-
-import machine as m
+import sys
+import machine
 
 from lib import db
 from lib import cli
-from lib import aggregator as ag
+from lib import aggregator
+from csv import DictWriter
 from lib.node import nodegen
 from lib.logger import log
 from collections import namedtuple
-from lib.csvwriter import CSVWriter
+from configparser import ConfigParser
 from multiprocessing import Pool
 
 Results = namedtuple('Results', [ 'keys', 'values', ])
 
 machine_ = {
-    'classification': m.Classifier,
-    'estimation': m.Estimator,
+    'classification': machine.Classifier,
+    'estimation': machine.Estimator,
 }
 
 aggregator_ = {
-    'simple': ag.simple,
-    'change': ag.change,
-    'average': ag.average,
-    'difference': ag.difference,
+    'simple': aggregator.simple,
+    'change': aggregator.change,
+    'average': aggregator.average,
+    'difference': aggregator.difference,
 }
     
-def f(*args):
-    (index, node, (cargs,)) = args
+def f(args):
+    (index, node, (config,)) = args
     
     log.info('node: {0}'.format(node))
 
-    machine = machine_[cargs.args.model]
-    aggregator = aggregator_[cargs.args.aggregator]
-    model = machine(node, cargs, aggregator)
+    opts = config['machine']
+    machine = machine_[opts['model']]
+    aggregator = aggregator_[opts['feature-transform']]
+    model = machine(node, config, aggregator)
 
     keys = model.header()
     values = []
@@ -47,23 +48,22 @@ log.info('phase 1')
 log.info('db version {0}'.format(db.mark()))
 
 cargs = cli.CommandLine(cli.optsfile('prediction'))
-db.genop(cargs.args.reporting)
+config = ConfigParser()
+config.read(cargs.args.config)
+
+db.genop(int(config['parameters']['intra-reporting']))
 
 #
 # Begin the processing!
 #
-with Pool() as pool:
-    results = pool.starmap(f, nodegen([ cargs ]), 1)
-    results = list(filter(lambda x: x.values, results))
-
 log.info('phase 2')
 
-if results:
-    header = results[0].keys
-    with CSVWriter(header, delimiter=';') as writer:
-        if cargs.args.header:
-            writer.writeheader()
-        for i in results:
-            writer.writerows(i.values)
-        
-log.info('phase 3')
+with Pool() as pool:
+    writer = None
+    for results in pool.imap_unordered(f, nodegen([ config ]), 1):
+        if results.values:
+            if not writer:
+                writer = DictWriter(sys.stdout, results.keys, delimiter=';')
+                if config['output'].getboolean('print-header'):
+                    writer.writeheader()
+            writer.writerows(results.values)

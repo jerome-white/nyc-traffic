@@ -1,5 +1,5 @@
-import os
 import random
+import pathlib
 
 import matplotlib.pyplot as plt
 
@@ -29,7 +29,10 @@ def mkplot(frame, fname, heading, ynorm=False, **kwargs):
     mkplot_(frame.plot(**opts), fname)
     
 def mkfname(path, nid, extension='pdf'):
-    return os.path.join(path, '{0:03d}.{1}'.format(nid, extension))
+    fname = '{0:03d}'.format(nid)
+    f = pathlib.Path(path, fname).with_suffix('.' + extension)
+    
+    return str(f)
     
 def mktitle(elements):
     (fmtstr, fmtlst) = ([], [])
