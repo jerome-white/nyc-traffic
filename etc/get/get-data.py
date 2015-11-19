@@ -1,3 +1,4 @@
+import sys
 import time
 import pickle
 import itertools
@@ -26,19 +27,19 @@ def sql_location(value):
     return 'LineFromText({0:s})'.format(value)
 
 tables = {
-    'reading': cl.OrderedDict({
-        'node': Attr('Id', int),
-        'speed': Attr('Speed', float),
-        'travel_time': Attr('TravelTime', int),
-        'as_of': Attr('DataAsOf', sql_time),
-    }),
-    'node': cl.OrderedDict({
-        'id': Attr('Id', int),
-        'name': Attr('Name', str),
-        'owner': Attr('Owner', str),
-        'borough': Attr('Borough', str),
-        'segment': Attr('Segment', sql_location),
-    }),
+    'reading': cl.OrderedDict([
+        ('node', Attr('Id', int)),
+        ('speed', Attr('Speed', float)),
+        ('travel_time', Attr('TravelTime', int)),
+        ('as_of', Attr('DataAsOf', sql_time)),
+    ]),
+    'node': cl.OrderedDict([
+        ('id', Attr('Id', int)),
+        ('name', Attr('Name', str)),
+        ('owner', Attr('Owner', str)),
+        ('borough', Attr('Borough', str)),
+        ('segment', Attr('Segment', sql_location)),
+    ]),
 }
 
 cargs = cli.CommandLine(cli.optsfile('storage'))
@@ -63,11 +64,13 @@ for i in itertools.count(0):
     try:
         doc = parse(urlopen(args.url))
         break
-    except URLError as u:
-        log.critical(u)
+    except (URLError, ConnectionError) as err:
+        # log.error(u)
+        pass
 
     if i > args.retries:
-        exit()
+        log.critical('Retries exceeded')
+        sys.exit(1)
         
     time.sleep(args.timeout)
 
