@@ -64,10 +64,12 @@ class Machine:
         #
         # Create the network of nodes (the source and its neighbors)
         #
+        log.info('{0} + create network'.format(self.nid))
         n = self.config['neighbors']
         cluster = self.nhandler[n['selection']]
         self.network = nt.Network(self.nid, int(n['depth']), cluster)
-
+        log.info('{0} - create network'.format(self.nid))
+        
         depth = self.network.depth()
         if depth != int(n['depth']):
             msg = 'Depth not fully explored: {0} < {1}'
@@ -75,7 +77,7 @@ class Machine:
         
         root = self.network.node
         assert(root.nid == self.nid)
-
+        
         #
         # Clean up the nodes: All nodes are shifted, interpolated, and
         # time-aligned with the root. Missing values at the root are
@@ -93,6 +95,7 @@ class Machine:
         # Build the observation matrix by looping over the root nodes
         # time periods
         #
+        log.info('{0} + observe'.format(self.nid))
         observations = []
         for i in root.range(window):
             whole = [ missing.intersection(x).size == 0 for x in i ]
@@ -105,8 +108,7 @@ class Machine:
                 features = self._features(self.network.nodes(), left)
                 
                 observations.append(features + labels)
-            
-        log.debug('observations: {0}'.format(len(observations)))
+        log.info('{0} - observe {1}'.format(self.nid, len(observations)))
                 
         return observations
 
@@ -128,18 +130,19 @@ class Machine:
         for (train, test) in s:
             x = (features[train], features[test], labels[train], labels[test])
             yield x
-        
+
+    def machinate(self, methods):
+        wanted = set(methods.split(','))
+        for i in wanted.intersection(self._machines.keys()):
+            factory = self._machines[x]
+            instance = factory.construct(**factory.kwargs)
+            
+            yield (factory.construct.__name__, instance)
+            
     def predict(self, observations):
         predictions = []
         network = repr(self.network)
         args = self.config['machine']
-
-        #
-        # subset of machines to use
-        #
-        wanted = set(args['method'].split(','))
-        keys = wanted.intersection(self._machines.keys())
-        machines = { x: self._machines[x] for x in keys }
 
         #
         # build k stratifications
@@ -149,15 +152,11 @@ class Machine:
         #
         # for each machine, train/predict using each stratification
         #
+        log.info('{0} + prediction'.format(self.nid))
         for (i, j) in enumerate(stratifications):
             (x_train, x_test, y_train, y_test) = j
 
-            for m in machines.values():
-                clf = m.construct(**m.kwargs)
-
-                msg = '{0}: prediction {1} of {2}'
-                log.info(msg.format(m.construct.__name__, i, args['folds']))
-
+            for (name, clf) in self.machinate(args['method']):
                 #
                 # train and fit the model
                 #
@@ -167,8 +166,8 @@ class Machine:
                 except (AttributeError, ValueError) as error:
                     with NamedTemporaryFile(mode='wb', delete=False) as fp:
                         pickle.dump(observations, fp)
-                        msg = '{0}: {1} {2}'.format(m, error, fp.name)
-                        log.error(msg)
+                        msg = [ name, error, fp.name ]
+                        log.error('{0}: {1} {2}'.format(*msg))
                     continue
                 
                 self.set_probabilities(clf, x_test)
@@ -177,11 +176,11 @@ class Machine:
                 # add accounting information to result row
                 #
                 lst = [
-                    m.construct.__name__,  # implementation
-                    x_train.shape,         # shape
-                    self.nid,              # node
-                    network,               # network
-                    i,                     # (k)fold
+                    name,          # implementation
+                    x_train.shape, # shape
+                    self.nid,      # node
+                    network,       # network
+                    i,             # (k)fold
                 ]
                 assert(len(lst) == len(self._header))
                 
@@ -201,7 +200,8 @@ class Machine:
                             log.warning(error)
                     
                 predictions.append(d)
-
+        log.info('{0} - prediction {1}'.format(self.nid, len(predictions)))
+        
         return predictions
 
     def __tostr(self, vals):
@@ -213,9 +213,6 @@ class Machine:
 
     def metrics(self):
         return self.__tostr(self._metrics)
-
-    # def classifiers(self):
-    #     return self.__tostr(self._machines)
 
     def _features(self, nodes, left):
         raise NotImplementedError()
