@@ -68,3 +68,7 @@ class Network:
     def depth(self):
         d = [ 0 ] + [ 1 + x.depth() for x in self.children ]
         return max(d)
+
+    def nodes(self):
+        for i in self:
+            yield(i.node)

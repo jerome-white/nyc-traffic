@@ -99,7 +99,7 @@ target=${args[2]}
 
 [machine]
 folds=10
-classifier=`sed -e's/ /,/g' <<< ${machines[@]}`
+method=`sed -e's/ /,/g' <<< ${machines[@]}`
 model=classification
 feature-transform=${args[4]}
 

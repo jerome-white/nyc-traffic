@@ -54,7 +54,7 @@ class Machine:
             'network',
             'kfold',
             ]
-        self._classifiers = {}
+        self._machines = {}
         self.probs = ClsProbs(False, None)
         
     def classify(self):
@@ -64,10 +64,12 @@ class Machine:
         #
         # Create the network of nodes (the source and its neighbors)
         #
+        log.info('{0} + create network'.format(self.nid))
         n = self.config['neighbors']
         cluster = self.nhandler[n['selection']]
         self.network = nt.Network(self.nid, int(n['depth']), cluster)
-
+        log.info('{0} - create network'.format(self.nid))
+        
         depth = self.network.depth()
         if depth != int(n['depth']):
             msg = 'Depth not fully explored: {0} < {1}'
@@ -75,7 +77,7 @@ class Machine:
         
         root = self.network.node
         assert(root.nid == self.nid)
-
+        
         #
         # Clean up the nodes: All nodes are shifted, interpolated, and
         # time-aligned with the root. Missing values at the root are
@@ -84,17 +86,16 @@ class Machine:
         s = root.readings.speed
         missing = s[s.isnull()].index
         
-        nodes = []
         for i in self.network:
             n = i.node
             n.readings.shift(i.lag)
             n.align(root, True)
-            nodes.append(n)
                 
         #
         # Build the observation matrix by looping over the root nodes
         # time periods
         #
+        log.info('{0} + observe'.format(self.nid))
         observations = []
         for i in root.range(window):
             whole = [ missing.intersection(x).size == 0 for x in i ]
@@ -102,21 +103,24 @@ class Machine:
                 (left, right) = i
                 mid = left[-len(right):]
                 assert(len(mid) == len(right))
-                label = self._label(root, mid, right)
-                features = self._features(nodes, left)
-                observations.append(features + label)
-            
-        log.debug('observations: {0}'.format(len(observations)))
+                
+                labels = self._labels(root, mid, right)
+                features = self._features(self.network.nodes(), left)
+                
+                observations.append(features + labels)
+        log.info('{0} - observe {1}'.format(self.nid, len(observations)))
                 
         return observations
 
-    def stratify(self, observations, folds, testing=0.2):
+    def stratify(self, observations, folds, testing=0.2, no_labels=1):
         assert(0 < testing < 1)
 
         data = np.asfarray(observations)
         assert(np.isfinite(data).all())
+
+        features = data[:,:-no_labels]
+        labels = data[:,-no_labels:].ravel()
         
-        (features, labels) = (data[:,:-1], data[:,-1:].ravel())
         s = StratifiedShuffleSplit(labels, n_iter=folds, test_size=testing)
 
         if self.jam_classifier:
@@ -126,26 +130,33 @@ class Machine:
         for (train, test) in s:
             x = (features[train], features[test], labels[train], labels[test])
             yield x
-        
+
+    def machinate(self, methods):
+        wanted = set(methods.split(','))
+        for i in wanted.intersection(self._machines.keys()):
+            factory = self._machines[x]
+            instance = factory.construct(**factory.kwargs)
+            
+            yield (factory.construct.__name__, instance)
+            
     def predict(self, observations):
         predictions = []
         network = repr(self.network)
         args = self.config['machine']
 
+        #
+        # build k stratifications
+        #
         stratifications = self.stratify(observations, int(args['folds']))
+
+        #
+        # for each machine, train/predict using each stratification
+        #
+        log.info('{0} + prediction'.format(self.nid))
         for (i, j) in enumerate(stratifications):
             (x_train, x_test, y_train, y_test) = j
 
-            for c in args['classifier'].split(','):
-                try:
-                    (ptr, kwargs) = self._classifiers[c]
-                    clf = ptr(**kwargs)
-                except KeyError:
-                    continue
-
-                msg = '{0}: prediction {1} of {2}'
-                log.info(msg.format(ptr.__name__, i, args['folds']))
-
+            for (name, clf) in self.machinate(args['method']):
                 #
                 # train and fit the model
                 #
@@ -155,8 +166,8 @@ class Machine:
                 except (AttributeError, ValueError) as error:
                     with NamedTemporaryFile(mode='wb', delete=False) as fp:
                         pickle.dump(observations, fp)
-                        msg = '{0}: {1} {2}'.format(c, error, fp.name)
-                        log.error(msg)
+                        msg = [ name, error, fp.name ]
+                        log.error('{0}: {1} {2}'.format(*msg))
                     continue
                 
                 self.set_probabilities(clf, x_test)
@@ -165,7 +176,7 @@ class Machine:
                 # add accounting information to result row
                 #
                 lst = [
-                    ptr.__name__,  # implementation
+                    name,          # implementation
                     x_train.shape, # shape
                     self.nid,      # node
                     network,       # network
@@ -189,7 +200,8 @@ class Machine:
                             log.warning(error)
                     
                 predictions.append(d)
-
+        log.info('{0} - prediction {1}'.format(self.nid, len(predictions)))
+        
         return predictions
 
     def __tostr(self, vals):
@@ -202,13 +214,10 @@ class Machine:
     def metrics(self):
         return self.__tostr(self._metrics)
 
-    def classifiers(self):
-        return self.__tostr(self._classifiers)
-
     def _features(self, nodes, left):
         raise NotImplementedError()
     
-    def _label(self, node, left, right):
+    def _labels(self, node, left, right):
         raise NotImplementedError()
 
     def set_probabilities(self, clf, x):
@@ -226,7 +235,7 @@ class Classifier(Machine):
             sklearn.metrics.matthews_corrcoef,
         ]
 
-        self._classifiers = {
+        self._machines = {
             'svm': ClassifierFactory(SVC, {
                 'cache_size': 2000, # 2GB
                 # 'probability': True,
@@ -281,7 +290,7 @@ class Classifier(Machine):
 
         return features
 
-    def _label(self, node, left, right):
+    def _labels(self, node, left, right):
         means = []
         for i in (left, right):
             series = node.readings.speed.ix[i]
@@ -311,7 +320,7 @@ class Estimator(Machine):
             sklearn.metrics.mean_squared_error,
         ]
 
-        classifiers_ = {
+        self._machines = {
             'svm': SVR,
             'tree': DecisionTreeRegressor,
             'bayes': GaussianNB,

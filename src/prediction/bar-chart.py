@@ -11,16 +11,16 @@ matplotlib.style.use('ggplot')
 
 Params = collections.namedtuple('Params', ['directory', 'slices'])
 
-d = collections.OrderedDict({
-    'implementation': 'RandomForestClassifier',
-})
-p = Params('2015_11-13_1210.samjam.local', d)
+# d = collections.OrderedDict([
+#     ('implementation', 'RandomForestClassifier'),
+# ])
+# p = Params('2015_11-13_1210.samjam.local', d)
 
-# d = collections.OrderedDict({
-#     'implementation': 'RandomForestClassifier',
-#     'prediction': 2,
-# })
-# p = Params('2015_11-15_0943.samjam.local', d)
+d = collections.OrderedDict([
+    ('implementation', 'RandomForestClassifier'),
+    ('prediction', 9),
+])
+p = Params('2015_11-15_0943.samjam.local', d)
 
 pivot = 'depth'
 groups = list(p.slices.keys()) + [ pivot, 'node' ]
@@ -36,8 +36,10 @@ raw = pd.DataFrame.from_csv(str(dat), sep=';', index_col=None)
 
 grouped = raw.groupby(groups)[list(metrics.keys())]
 
-aggregate = grouped.agg([ np.mean ])
-df = aggregate.loc[list(p.slices.values())]
+df = grouped.agg([ np.mean ])
+for i in p.slices.values():
+    df = df.loc[i]
+
 df = df.unstack(level=pivot)
 df.rename(columns=lambda x: metrics[x] if x in metrics else x, inplace=True)
 
@@ -47,4 +49,6 @@ fig = means.plot(yerr=errors, kind='bar')
 
 fname = 'neighbor-' + '_'.join(map(str, p.slices.values()))
 dat = pathlib.Path(path, 'fig', fname).with_suffix('.' + 'png')
+print(dat)
+
 utils.mkplot_(fig, str(dat))
