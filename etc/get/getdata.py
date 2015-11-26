@@ -74,8 +74,8 @@ class NYC(GetRemoteXML):
         ]
         node = [
             ('id', Attr('Id', int)),
-            ('name', Attr('Name', str)),
-            ('segment', Attr('Segment', self.sql_location)),
+            ('name', Attr('LinkName', str)),
+            ('segment', Attr('linkPoints', self.sql_location)),
         ]
         super().__init__(url, retries, timeout, reading, node)
         self.time_fmt = '%m/%d/%Y %H:%M:%S'
@@ -86,13 +86,19 @@ class NYC(GetRemoteXML):
         # })
             
     def sql_location(self, value):
-        swap = ', ;'
-        swaplen = len(swap)
-        for i in range(swaplen):
-            j = (i + 2) % swaplen
-            value = value.replace(swap[i], swap[j])
+        v = []
+        for i in value.split(' '):
+            try:
+                # corrections for erroneous lat/long's: non-numeric,
+                # non-paired, out-of-range
+                (lat, lon) = [ float(x) for x in i.split(',') ]
+                if 40 < lat < 41 and -75 < lon < -72:
+                    v.append(' '.join(map(str, (lat, lon))))
+            except ValueError:
+                continue
+        fmt = ','.join(v)
 
-        return super().sql_location(value)
+        return super().sql_location(fmt)
     
     def parse(self, table, root='Speed'):
         xml = dom.parse(self.doc)
@@ -163,7 +169,10 @@ class Massachusetts(GetRemoteXML):
                     n = node.find(value.name)
                     info = self.routes(n) if key == 'segment' else n.text
                     if info:
-                        row[key] = value.process(info)
+                        try:
+                            row[key] = value.process(info)
+                        except ValueError:
+                            break
 
             if all([ x in row for x in tbl ]):
                 self.data.append(row)
