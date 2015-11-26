@@ -31,13 +31,11 @@ class GetRemoteXML:
             time.sleep(timeout)
 
         self.data = []
-        self.tables = {
-            'reading': reading,
-            'node': node,
-        }
         self.time_fmt = ''
-        for i in ('reading', 'node'):
-            self.tables[i] = cl.OrderedDict()
+        self.tables = {
+            'reading': cl.OrderedDict(reading),
+            'node': cl.OrderedDict(node),
+        }
 
     def sql_time(self, value):
         tm = time.strptime(value, self.time_fmt)
@@ -57,6 +55,12 @@ class GetRemoteXML:
         with path.open(mode='wb') as fp:
             pickle.dump(self.data, fp)
 
+    def check(self, fname):
+        with open(fname, mode='rb') as fp:
+            existing = pickle.load(fp)
+            for i in existing:
+                print(i)
+            
     def parse(self, table, root):
         raise NotImplementedError()
 
@@ -69,9 +73,9 @@ class NYC(GetRemoteXML):
             ('as_of', Attr('DataAsOf', self.sql_time)),
         ]
         node = [
-            ('id': Attr('Id', int)),
-            ('name': Attr('Name', str)),
-            ('segment': Attr('Segment', self.sql_location)),
+            ('id', Attr('Id', int)),
+            ('name', Attr('Name', str)),
+            ('segment', Attr('Segment', self.sql_location)),
         ]
         super().__init__(url, retries, timeout, reading, node)
         self.time_fmt = '%m/%d/%Y %H:%M:%S'
@@ -104,15 +108,15 @@ class NYC(GetRemoteXML):
 class Massachusetts(GetRemoteXML):
     def __init__(self, url, retries, timeout):
         reading = [
-            ('node': Attr('PairID', int)),
-            ('speed': Attr('Speed', float)),
-            ('travel_time': Attr('TravelTime', float)),
-            ('as_of': Attr('LastUpdated', self.sql_time)),
+            ('node', Attr('PairID', int)),
+            ('speed', Attr('Speed', float)),
+            ('travel_time', Attr('TravelTime', float)),
+            ('as_of', Attr('LastUpdated', self.sql_time)),
         ]
         node = [
-            ('id': Attr('PairID', int)),
-            ('name': Attr('Title', str)),
-            ('segment': Attr('Routes', self.sql_location)),
+            ('id', Attr('PairID', int)),
+            ('name', Attr('Title', str)),
+            ('segment', Attr('Routes', self.sql_location)),
         ]
         
         super().__init__(url, retries, timeout, reading, node)
@@ -130,36 +134,39 @@ class Massachusetts(GetRemoteXML):
     def routes(self, node):
         pairs = []
         for r in node.findall('Route'):
-            c = [ r.find(x) for x in ('lat', 'lon') ]
-            pairs.append(' '.join(map(str, c)))
+            points = [ r.find(x).text for x in ('lat', 'lon') ]
+            fmt = ' '.join(map(str, points))
+            pairs.append(fmt)
 
         return ','.join(pairs)
+
+    def xpath(self, values, sep='/'):
+        return sep.join(values)
         
-    def parse(self, table, root='PAIRDATA'):
+    def parse(self, table, root='TRAVELDATA'):
         xml = et.parse(self.doc)
         
         tbl = self.tables[table]
 
         if table == 'reading':
             handler = tbl['as_of']
-            t = xml.findall(handler.name)
+            path = self.xpath([ root, handler.name ])
+            t = xml.findall(path)
             assert(len(t) == 1)
             tstamp = handler.process(t[0].text)
-        
-        for node in xml.findall(root):
+
+        path = self.xpath([ root, 'PAIRDATA' ])
+        for node in xml.findall(path):
             row = { 'as_of': tstamp } if table == 'reading' else {}
             for (key, value) in tbl.items():
-                if key in row:
-                    continue
-                
-                if key == 'segment':
-                    info = self.routes(node)
-                else:
-                    info = node.find(value.name).text
-                    
-                row[key] = value.process(info)
-                
-            self.data.append(row)
+                if key not in row:
+                    n = node.find(value.name)
+                    info = self.routes(n) if key == 'segment' else n.text
+                    if info:
+                        row[key] = value.process(info)
+
+            if all([ x in row for x in tbl ]):
+                self.data.append(row)
 
 class Ireland(GetRemoteXML):
     def __init__(self, url, retries, timeout):
@@ -178,6 +185,7 @@ try:
     data = handler(args.url, args.retries, args.timeout)
     data.parse(args.table, args.root)
     data.to_file(args.output)
+    # data.check(args.output)
 except AttributeError as err:
     log.critical(err)
 

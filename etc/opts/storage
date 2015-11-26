@@ -1,8 +1,9 @@
 prefix,dest,type,default,action,choices
 table,table,,reading,,reading|node
-url,url,,http://207.251.86.229/nyc-links-cams/TrafficSpeed.php,,
+source,source,,,,nyc|mass|ie
 retries,retries,int,3,,
 timeout,timeout,int,8,,
-root-node,root,,Speed,,
+root-node,root,,,,
+url,url,,,,
 input,input,,,,
 output,output,,,,
