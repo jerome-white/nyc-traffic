@@ -22,7 +22,7 @@ class GetRemoteXML:
                 self.doc = urlopen(url)
                 break
             except (URLError, ConnectionError) as err:
-                log.error(u)
+                log.error(err)
                 pass
 
             if i > retries:
