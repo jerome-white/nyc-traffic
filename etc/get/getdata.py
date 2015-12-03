@@ -2,6 +2,7 @@ import sys
 import time
 import pickle
 import itertools
+import traceback
 
 import collections as cl
 import xml.dom.minidom as dom
@@ -12,6 +13,7 @@ from pathlib import Path
 from lib.logger import log
 from urllib.error import URLError
 from urllib.request import urlopen
+from tempfile import NamedTemporaryFile
 
 Attr = cl.namedtuple('Attr', [ 'name', 'process' ])
 
@@ -197,4 +199,13 @@ try:
     # data.check(args.output)
 except AttributeError as err:
     log.critical(err)
-
+except AssertionError:
+    (*_, tb) = sys.exc_info()
+    (*_, tb_info) = traceback.extract_tb(tb)
+    
+    if data.doc:
+        with NamedTemporaryFile(mode='w', delete=False) as fp:
+            fp.write(data.doc)
+            tb_info.append(fp.name)
+            
+    log.critical(tb_info)
