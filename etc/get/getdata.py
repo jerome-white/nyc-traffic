@@ -11,23 +11,29 @@ import xml.etree.ElementTree as et
 from lib import cli
 from pathlib import Path
 from lib.logger import log
-from urllib.error import URLError
 from urllib.request import urlopen
 from tempfile import NamedTemporaryFile
 
 Attr = cl.namedtuple('Attr', [ 'name', 'process' ])
 
+def handle_error(doc):
+    with NamedTemporaryFile(mode='w', delete=False) as fp:
+        fp.write(doc)
+        return fp.name
+
 class GetRemoteXML:
     def __init__(self, url, retries, timeout, reading, node):
+        elist = []
         for i in itertools.count(0):
             try:
                 self.doc = urlopen(url)
                 break
-            except (URLError, ConnectionError) as err:
-                log.error(err)
-                pass
+            except Exception as err:
+                e = type(err)
+                elist.append(e.__name__)
 
             if i > retries:
+                log.error(elist)
                 raise AttributeError('Retries exceeded')
         
             time.sleep(timeout)
@@ -152,7 +158,12 @@ class Massachusetts(GetRemoteXML):
         return sep.join(values)
         
     def parse(self, table, root='TRAVELDATA'):
-        xml = et.parse(self.doc)
+        try:
+            xml = et.parse(self.doc)
+        except et.ParseError as perror:
+            fname = error_dump(self.doc)
+            msg = '{0} (see {1})'.format(perror, fname)
+            raise AttributeError(msg)
         
         tbl = self.tables[table]
 
@@ -204,8 +215,7 @@ except AssertionError:
     (*_, tb_info) = traceback.extract_tb(tb)
     
     if data.doc:
-        with NamedTemporaryFile(mode='w', delete=False) as fp:
-            fp.write(data.doc)
-            tb_info.append(fp.name)
+        fname = handle_error(data.doc)
+        tb_info.append(fname)
             
     log.critical(tb_info)
