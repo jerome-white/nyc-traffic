@@ -222,10 +222,10 @@ except AttributeError as err:
     log.critical(err)
 except AssertionError:
     (*_, tb) = sys.exc_info()
-    (*_, tb_info) = traceback.extract_tb(tb)
+    (*_, tb_info) = map(list, traceback.extract_tb(tb))
     
     if data.doc:
         fname = handle_error(data.doc)
         tb_info.append(fname)
             
-    log.critical(tb_info)
+    log.critical(' '.join(map(str, tb_info)))
