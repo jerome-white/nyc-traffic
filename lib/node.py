@@ -10,12 +10,18 @@ from lib.logger import log
 from statsmodels.tsa import stattools as st
 
 def getnodes(connection):
-    sql = 'SELECT id FROM operational ORDER BY id ASC'
-    
+    result = '@id'
+        
     with db.DatabaseCursor(connection) as cursor:
-        cursor.execute(sql)
-        for row in cursor:
-            yield row['id']
+        while True:
+            cursor.execute('CALL getnode({0})'.format(result))
+
+            cursor.execute('SELECT {0}'.format(result))
+            row = cursor.fetchone()
+            if not row[result]:
+                raise StopIteration
+
+            yield row[result]
             
 def nodegen(args=None):
     k = tuple(args) if type(args) == list else args
