@@ -1,7 +1,9 @@
 import sys
 import time
 import pickle
-import itertools
+import logging
+import requests
+import traceback
 
 import collections as cl
 import xml.dom.minidom as dom
@@ -10,28 +12,41 @@ import xml.etree.ElementTree as et
 from lib import cli
 from pathlib import Path
 from lib.logger import log
-from urllib.error import URLError
-from urllib.request import urlopen
+from tempfile import NamedTemporaryFile
+from requests.exceptions import RequestException
 
 Attr = cl.namedtuple('Attr', [ 'name', 'process' ])
 
+for i in [ 'requests', 'urllib3' ]:
+    logging.getLogger(i).setLevel(logging.CRITICAL)
+
+def handle_error(doc):
+    with NamedTemporaryFile(mode='w', delete=False) as fp:
+        fp.write(doc)
+        return fp.name
+
 class GetRemoteXML:
-    def __init__(self, url, retries, timeout, reading, node):
-        for i in itertools.count(0):
+    def __get_data(self, url, retries, timeout):
+        elist = []
+        for _ in range(retries):
             try:
-                self.doc = urlopen(url)
-                break
-            except (URLError, ConnectionError) as err:
-                log.error(u)
-                pass
+                r = requests.get(url)
+                r.raise_for_status()
+            except (RequestException, ConnectionError) as err:
+                elist.append(type(err).__name__)
+                time.sleep(timeout)
+                continue
 
-            if i > retries:
-                raise AttributeError('Retries exceeded')
+            return r.text
+
+        log.error(elist)
+        raise AttributeError('Retries exceeded')
         
-            time.sleep(timeout)
-
+    def __init__(self, url, retries, timeout, reading, node):
+        self.doc = self.__get_data(url, retries, timeout)
         self.data = []
         self.time_fmt = ''
+        self.parse_function = None
         self.tables = {
             'reading': cl.OrderedDict(reading),
             'node': cl.OrderedDict(node),
@@ -60,10 +75,17 @@ class GetRemoteXML:
             existing = pickle.load(fp)
             for i in existing:
                 print(i)
-            
-    def parse(self, table, root):
-        raise NotImplementedError()
 
+    def parse(self, table, root):
+        assert(self.parse_function and self.doc)
+        
+        try:
+            return self.parse_function(self.doc)
+        except Exception as err:
+            fname = handle_error(self.doc)
+            msg = '{0} (see {1})'.format(err, fname)
+            raise AttributeError(msg)
+    
 class NYC(GetRemoteXML):
     def __init__(self, url, retries, timeout):
         reading = [
@@ -79,6 +101,7 @@ class NYC(GetRemoteXML):
         ]
         super().__init__(url, retries, timeout, reading, node)
         self.time_fmt = '%m/%d/%Y %H:%M:%S'
+        self.parse_function = dom.parseString
         
         # self.tables['nyc_node'].update({
         #     'owner': Attr('Owner', str),
@@ -101,9 +124,9 @@ class NYC(GetRemoteXML):
         return super().sql_location(fmt)
     
     def parse(self, table, root='Speed'):
-        xml = dom.parse(self.doc)
-        
+        xml = super().parse(table, root)
         tbl = self.tables[table]
+        
         for node in xml.getElementsByTagName(root):
             row = {}
             for (key, value) in tbl.items():
@@ -127,7 +150,8 @@ class Massachusetts(GetRemoteXML):
         
         super().__init__(url, retries, timeout, reading, node)
         self.time_fmt = '%b-%d-%Y %H:%M:%S %Z'
-
+        self.parse_function = et.fromstring
+        
         # self.tables['mass_node'].update({
         #     'direction':
         #     'origin':
@@ -150,10 +174,9 @@ class Massachusetts(GetRemoteXML):
         return sep.join(values)
         
     def parse(self, table, root='TRAVELDATA'):
-        xml = et.parse(self.doc)
-        
+        xml = super().parse(table, root)
         tbl = self.tables[table]
-
+        
         if table == 'reading':
             handler = tbl['as_of']
             path = self.xpath([ root, handler.name ])
@@ -197,4 +220,12 @@ try:
     # data.check(args.output)
 except AttributeError as err:
     log.critical(err)
-
+except AssertionError:
+    (*_, tb) = sys.exc_info()
+    (*_, tb_info) = map(list, traceback.extract_tb(tb))
+    
+    if data.doc:
+        fname = handle_error(data.doc)
+        tb_info.append(fname)
+            
+    log.critical(' '.join(map(str, tb_info)))
