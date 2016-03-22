@@ -9,8 +9,13 @@ from tempfile import NamedTemporaryFile
 from lib.logger import log
 from statsmodels.tsa import stattools as st
 
-def getnodes(connection):
+def getnodes(connection=None):
     result = '@id'
+
+    if not connection:
+        with db.DatabaseConnection() as conn:
+            yield from getnodes(conn)
+            return
         
     with db.DatabaseCursor(connection) as cursor:
         while True:
@@ -22,13 +27,12 @@ def getnodes(connection):
                 raise StopIteration
 
             yield row[result]
-            
-def nodegen(args=None):
-    k = tuple(args) if type(args) == list else args
-    
+
+def nodegen(*args):
     with db.DatabaseConnection() as conn:
         for (i, j) in enumerate(getnodes(conn)):
-            yield (i, j, k)
+            tup = (i, j, args) if len(args) else (i, j)
+            yield tup
 
 def nacount(data, col='speed'):
     return data[col].isnull().sum()
