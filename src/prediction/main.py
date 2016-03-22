@@ -78,7 +78,6 @@ config = ConfigParser()
 config.read(cargs.args.config) # --config
 
 params = config['parameters']
-db.genop(int(params['intra-reporting']))
 writer = ResultsWriter(config['output'].getboolean('print-header'))
 
 #
@@ -90,6 +89,7 @@ if 'node' in params:
     args = (0, int(params['node']), config)
     writer.write(run(args))
 else:
+    db.genop(int(params['intra-reporting']))
     with Pool() as pool:
         for i in pool.imap_unordered(run, nodegen(config), 1):
             writer.write(i)
