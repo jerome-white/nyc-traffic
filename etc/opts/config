@@ -2,6 +2,6 @@ prefix,dest,type,default,action,choices
 reporting-threshold,reporting,float,0,
 output-directory,output,,,,
 parallel,parallel,,,store_true,
-no-parallel,parallel,,,store_false,
+sequential,parallel,,,store_false,
 verbose,verbose,,,store_true,
 no-verbose,verbose,,,store_false,
