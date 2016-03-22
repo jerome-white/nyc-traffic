@@ -10,19 +10,18 @@ def product(d):
     for i in itertools.product(*d.values()):
         yield dict(zip(d, i))
 
-def add(source, target, key, indices):
-    if key not in target:
-        target[key] = {}
-        
-    for i in indices:
-        target[key][i] = source[i]
-
+# Intra-reporting time must be a single value, across which all runs
+# using configuration files generated with this script must obey. This
+# is because intra-reporting has a significant impact on the number of
+# runs allowed as it dictates the view of the database processes see.
 reporting = 120
+
+parallel = False
 tmp_params = {
     'mode': 'w',
     'delete': False,
     'prefix': 'nyc.',
-    'suffix': '.cfg',
+    'suffix': '.ini',
 }
 
 #
@@ -61,13 +60,23 @@ options = {
 #
 # Build the file!
 #
+p = 'parameters'
+helper = {
+    'window': [ 'observation', 'prediction', 'target' ],
+    'neighbors': [ 'depth', 'selection' ],
+}
 for (i, o) in enumerate(product(options)):
-    db.genop(reporting)
-    for n in node.getnodes():
+    if parallel:
+        nodes = [ None ]
+    else:
+        db.genop(reporting) # so that getnodes works properly
+        nodes = node.getnodes()
+        
+    for n in nodes:
         config = configparser.ConfigParser()
 
-        add(o, config, 'window', [ 'observation', 'prediction', 'target' ])
-        add(o, config, 'neighbors', [ 'depth', 'selection' ])
+        for (title, keys) in helper.items():
+            config[title] = { k: o[k] for k in keys }
         
         config['machine'] = {
             'folds': str(10),
@@ -80,14 +89,14 @@ for (i, o) in enumerate(product(options)):
             'print-header': str(i == 0),
         }
 
-        config['parameters'] = {
+        config[p] = {
             'acceleration': str(-0.002),
             'intra-reporting': reporting,
-            
-            # Having a node value implicitly forces sequential operation
-            'node': str(n),
         }
+        if n is not None:
+            config[p]['node'] = str(n)
 
         with NamedTemporaryFile(**tmp_params) as fp:
             print(fp.name)
             config.write(fp)
+
