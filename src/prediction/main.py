@@ -12,7 +12,27 @@ from configparser import ConfigParser
 from multiprocessing import Pool
 
 Results = namedtuple('Results', [ 'keys', 'values', ])
+class ResultsWriter:
+    def __init__(self, header):
+        self.header = header
+        self.writer = None
 
+    def write(self, results):
+        if not results.values:
+            return
+        
+        if not self.writer:
+            self.writer = DictWriter(sys.stdout, results.keys, delimiter=';')
+            if self.header:
+                self.writer.writeheader()
+                
+        self.writer.writerows(results.values)
+
+#
+# Mappings between configuration options and learning
+# interfaces. Dictionary keys should have a corresponding key in the
+# .ini file!
+#
 machine_ = {
     'classification': machine.Classifier,
     'estimation': machine.Estimator,
@@ -24,8 +44,11 @@ aggregator_ = {
     'average': aggregator.average,
     'difference': aggregator.difference,
 }
-    
-def f(args):
+
+#
+# Run the prediction!
+#
+def run(args):
     (index, node, (config,)) = args
     
     log.info('node: {0}'.format(node))
@@ -44,26 +67,34 @@ def f(args):
 
     return Results(keys, values)
 
+#
+# Setup
+#
 log.info('phase 1')
-log.info('db version {0}'.format(db.mark()))
+log.info('db version: {0}'.format(db.mark()))
 
-cargs = cli.CommandLine(cli.optsfile('prediction'))
+cargs = cli.CommandLine(cli.optsfile('prediction')) # /etc/opts/prediction
 config = ConfigParser()
-config.read(cargs.args.config)
+config.read(cargs.args.config) # --config
 
-db.genop(int(config['parameters']['intra-reporting']))
+params = config['parameters']
+db.genop(int(params['intra-reporting']))
+writer = ResultsWriter(config['output'].getboolean('print-header'))
 
 #
-# Begin the processing!
+# Processing
 #
 log.info('phase 2')
 
-with Pool() as pool:
-    writer = None
-    for results in pool.imap_unordered(f, nodegen([ config ]), 1):
-        if results.values:
-            if not writer:
-                writer = DictWriter(sys.stdout, results.keys, delimiter=';')
-                if config['output'].getboolean('print-header'):
-                    writer.writeheader()
-            writer.writerows(results.values)
+if 'node' in params:
+    args = (0, int(params['node']), config)
+    writer.write(run(args))
+else:
+    with Pool() as pool:
+        for i in pool.imap_unordered(run, nodegen(config), 1):
+            writer.write(i)
+
+#
+# Tear down
+#
+log.info('phase 3')
