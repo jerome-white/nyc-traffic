@@ -1,7 +1,13 @@
+# Intra-reporting time must be a single value, across which all runs
+# using configuration files generated with this script must obey. This
+# is because intra-reporting has a significant impact on the number of
+# runs allowed as it dictates the view of the database processes see.
+
 import itertools
 import configparser
 
 from lib import db
+from lib import cli
 from lib import node
 from tempfile import NamedTemporaryFile
 
@@ -10,19 +16,8 @@ def product(d):
     for i in itertools.product(*d.values()):
         yield dict(zip(d, i))
 
-# Intra-reporting time must be a single value, across which all runs
-# using configuration files generated with this script must obey. This
-# is because intra-reporting has a significant impact on the number of
-# runs allowed as it dictates the view of the database processes see.
-reporting = 120
-
-parallel = False
-tmp_params = {
-    'mode': 'w',
-    'delete': False,
-    'prefix': 'nyc.',
-    'suffix': '.ini',
-}
+cargs = cli.CommandLine(cli.optsfile('config')) # /etc/opts/config
+args = cargs.args
 
 #
 # Options that can be simultaneous during a single run
@@ -66,10 +61,10 @@ helper = {
     'neighbors': [ 'depth', 'selection' ],
 }
 for (i, o) in enumerate(product(options)):
-    if parallel:
+    if args.parallel:
         nodes = [ None ]
     else:
-        db.genop(reporting) # so that getnodes works properly
+        db.genop(args.reporting) # so that getnodes works properly
         nodes = node.getnodes()
         
     for n in nodes:
@@ -91,12 +86,12 @@ for (i, o) in enumerate(product(options)):
 
         config[p] = {
             'acceleration': str(-0.002),
-            'intra-reporting': reporting,
+            'intra-reporting': args.reporting,
         }
         if n is not None:
             config[p]['node'] = str(n)
 
-        with NamedTemporaryFile(**tmp_params) as fp:
-            print(fp.name)
+        with NamedTemporaryFile(mode='w', delete=False, dir=args.output) as fp:
+            if args.verbose:
+                print(fp.name)
             config.write(fp)
-
