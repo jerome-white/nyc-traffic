@@ -69,6 +69,8 @@ for (i, o) in enumerate(product(options)):
         
     for n in nodes:
         config = configparser.ConfigParser()
+        if args.skeleton:
+            config.read(args.skeleton)
 
         for (title, keys) in helper.items():
             config[title] = { k: o[k] for k in keys }
