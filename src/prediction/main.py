@@ -53,6 +53,11 @@ def run(args):
     
     log.info('node: {0}'.format(node))
 
+    # Establish the database credentials. Passing None uses the
+    # defaults.
+    dbinfo = config['database'] if 'database' in config else None
+    db.EstablishCredentials(**dbinfo)
+
     opts = config['machine']
     machine = machine_[opts['model']]
     aggregator = aggregator_[opts['feature-transform']]
@@ -70,6 +75,16 @@ def run(args):
 #
 # Setup
 #
+
+fmt = [
+    '%(levelname)s:%(asctime)s',
+    '%(process)d',
+    '%(filename)s:%(lineno)d',
+    '%(message)s'
+]
+logging.basicConfig(level=self.__level, format=' '.join(fmt))
+selg.log = logging.getLogger(os.getpid())
+
 log.info('phase 1')
 log.info('db version: {0}'.format(db.mark()))
 
@@ -98,3 +113,4 @@ else:
 # Tear down
 #
 log.info('phase 3')
+
