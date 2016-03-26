@@ -1,4 +1,6 @@
+import os
 import logging
+import platform
 
 # Level    Numeric value
 # CRITICAL 50
@@ -8,23 +10,43 @@ import logging
 # DEBUG    10
 # NOTSET   0
 
-class Logger:
-    __instance = None
-    __level = logging.DEBUG
-
+class LogConfigure:
+    logname = None # basename for clients
+    
     def __new__(self):
-        if not self.__instance:
-            fmt = [
-                '%(levelname)s:%(asctime)s',
-                '%(process)d',
+        if not self.logname:
+            # log level
+            level = logging.DEBUG
+
+            # message format
+            msgfmt = [
+                '%(levelname)s %(asctime)s',
+                '%(name)s',
                 '%(filename)s:%(lineno)d',
-                '%(message)s'
+                '%(message)s',
             ]
-            logging.basicConfig(level=self.__level, format=' '.join(fmt))
-            self.log = logging
+            msgsep = ' '
+            msgfmt = msgsep.join(msgfmt)
 
-            self.__instance = super(Logger, self).__new__(self)
+            # date format
+            mdy = [ 'Y', 'm', 'd' ]
+            hms = [ 'H', 'M', 'S' ]
+            datesep_intra = ''
+            datesep_inter = ','
+
+            mdyhms = [ [ '%' + x for x in y ] for y in [mdy, hms] ]
+            datefmt = datesep_inter.join(map(datesep_intra.join, mdyhms))
+
+            # configure!
+            logging.basicConfig(level=level, format=msgfmt, datefmt=datefmt)
+            self.logname = '.'.join(map(str, [ platform.node(), os.getpid() ]))
             
-        return self.__instance
+        return self.logname
 
-log = Logger().log
+def getlogger(root=False):
+    elements = [ LogConfigure() ]
+    if not root:
+        elements.append(str(os.getpid()))
+    name = '.'.join(elements)
+    
+    return logging.getLogger(name)
