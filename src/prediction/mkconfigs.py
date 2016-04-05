@@ -1,7 +1,6 @@
-# Intra-reporting time must be a single value, across which all runs
-# using configuration files generated with this script must obey. This
-# is because intra-reporting has a significant impact on the number of
-# runs allowed as it dictates the view of the database processes see.
+#
+# Generate the configuration file(s) used by the predictor.
+#
 
 import itertools
 import configparser
