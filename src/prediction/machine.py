@@ -11,10 +11,10 @@ import lib.network as nt
 import lib.aggregator as ag
 import scipy.constants as constant
 
+from lib import logger
 from lib import configtools
 from lib.db import DatabaseConnection
 from tempfile import NamedTemporaryFile
-from lib.logger import log
 from lib.window import Window
 from collections import namedtuple
 from sklearn.svm import SVC
@@ -39,6 +39,7 @@ class Machine:
         self.aggregator = aggregator
         self.network = None
         self.jam_classifier = None
+        self.log = logger.getlogger()
 
         self.nhandler = {
             'simple': cl.Cluster,
@@ -64,11 +65,11 @@ class Machine:
         #
         # Create the network of nodes (the source and its neighbors)
         #
-        log.info('{0} + create network'.format(self.nid))
+        self.log.info('{0} + create network'.format(self.nid))
         n = self.config['neighbors']
         cluster = self.nhandler[n['selection']]
         self.network = nt.Network(self.nid, int(n['depth']), cluster)
-        log.info('{0} - create network'.format(self.nid))
+        self.log.info('{0} - create network'.format(self.nid))
         
         depth = self.network.depth()
         if depth != int(n['depth']):
@@ -95,7 +96,7 @@ class Machine:
         # Build the observation matrix by looping over the root nodes
         # time periods
         #
-        log.info('{0} + observe'.format(self.nid))
+        self.log.info('{0} + observe'.format(self.nid))
         observations = []
         for i in root.range(window):
             whole = [ missing.intersection(x).size == 0 for x in i ]
@@ -108,7 +109,7 @@ class Machine:
                 features = self._features(self.network.nodes(), left)
                 
                 observations.append(features + labels)
-        log.info('{0} - observe {1}'.format(self.nid, len(observations)))
+        self.log.info('{0} - observe {1}'.format(self.nid, len(observations)))
                 
         return observations
 
@@ -152,7 +153,7 @@ class Machine:
         #
         # for each machine, train/predict using each stratification
         #
-        log.info('{0} + prediction'.format(self.nid))
+        self.log.info('{0} + prediction'.format(self.nid))
         for (i, j) in enumerate(stratifications):
             (x_train, x_test, y_train, y_test) = j
 
@@ -167,7 +168,7 @@ class Machine:
                     with NamedTemporaryFile(mode='wb', delete=False) as fp:
                         pickle.dump(observations, fp)
                         msg = [ name, error, fp.name ]
-                        log.error('{0}: {1} {2}'.format(*msg))
+                        self.log.error('{0}: {1} {2}'.format(*msg))
                     continue
                 
                 self.set_probabilities(clf, x_test)
@@ -197,10 +198,10 @@ class Machine:
                         try:
                             d[f.__name__] = f(y_test, pred)
                         except (UndefinedMetricWarning, ValueError) as error:
-                            log.warning(error)
+                            self.log.warning(error)
                     
                 predictions.append(d)
-        log.info('{0} - prediction {1}'.format(self.nid, len(predictions)))
+        self.log.info('{0} prediction {1}'.format(self.nid, len(predictions)))
         
         return predictions
 
@@ -257,7 +258,7 @@ class Classifier(Machine):
             # this generally happens if a classifier doesn't natively
             # support probability estimates (such as SVMs; set
             # 'probability' in this case)
-            log.warning(err)
+            self.log.warning(err)
 
     def roc(self, y_true, y_pred):
         if self.probs.valid:

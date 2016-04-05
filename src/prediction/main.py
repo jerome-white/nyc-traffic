@@ -5,8 +5,8 @@ from lib import db
 from lib import cli
 from lib import aggregator
 from csv import DictWriter
+from lib import logger
 from lib.node import nodegen
-from lib.logger import log
 from collections import namedtuple
 from configparser import ConfigParser
 from multiprocessing import Pool
@@ -50,7 +50,8 @@ aggregator_ = {
 #
 def run(args):
     (index, node, (config,)) = args
-    
+
+    log = logger.getlogger()
     log.info('node: {0}'.format(node))
 
     # Establish the database credentials. Passing None uses the
@@ -76,15 +77,7 @@ def run(args):
 # Setup
 #
 
-fmt = [
-    '%(levelname)s:%(asctime)s',
-    '%(process)d',
-    '%(filename)s:%(lineno)d',
-    '%(message)s'
-]
-logging.basicConfig(level=self.__level, format=' '.join(fmt))
-selg.log = logging.getLogger(os.getpid())
-
+log = logger.getlogger(True)
 log.info('phase 1')
 log.info('db version: {0}'.format(db.mark()))
 
