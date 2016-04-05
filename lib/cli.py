@@ -1,9 +1,12 @@
 import os
 import csv
+import pathlib
 import argparse
 
 def optsfile(basename):
-    return os.path.join(os.environ['NYCTRAFFICOPTS'], basename)
+    p = pathlib.Path(os.environ['NYCTRAFFIC'], 'etc/opts', basename)
+    
+    return str(p)
 
 class CommandLine:
     __type_map = {
