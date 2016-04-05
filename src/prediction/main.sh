@@ -18,7 +18,8 @@ while true; do
         ( mkcurrent `dirname $out` )
         break
     fi
-    sleep 60
+    # sleep until this minute is finished
+    sleep `expr 60 - $(expr $(date +%s) % 60)`
 done
 
 #
