@@ -193,15 +193,12 @@ class Machine:
         
         return predictions
 
-    def __tostr(self, vals):
-        return [ x.__name__ for x in vals ]
-
     def header(self):
         h = configtools.ordered(self.config)
         return self._header + list(h.keys()) + self.metrics()
 
     def metrics(self):
-        return self.__tostr(self._metrics)
+        return [ x.__name__ for x in self._metrics ]
 
     # Abstract methods
 
