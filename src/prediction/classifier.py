@@ -5,12 +5,15 @@ import lib.cpoint as cp
 import lib.aggregator as ag
 
 from lib import logger
+from collections import namedtuple
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.naive_bayes import GaussianNB
+
+ClassifierFactory = namedtuple('ClassifierFactory', [ 'construct', 'kwargs' ])
 
 class Classifier(machine.Machine):
     def __init__(self, nid, config, aggregator=ag.simple, jam=cp.Acceleration):

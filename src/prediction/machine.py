@@ -14,7 +14,6 @@ from sklearn.metrics.base import UndefinedMetricWarning
 from sklearn.cross_validation import StratifiedShuffleSplit
 
 ClsProbs = namedtuple('ClsProbs', [ 'valid', 'probabilities' ])
-ClassifierFactory = namedtuple('ClassifierFactory', [ 'construct', 'kwargs' ])
 
 class Machine:
     def __init__(self, nid, config, aggregator):
