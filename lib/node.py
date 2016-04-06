@@ -6,7 +6,6 @@ import scipy.constants as constant
 
 from lib import db
 from tempfile import NamedTemporaryFile
-from lib.logger import log
 from statsmodels.tsa import stattools as st
 
 def getnodes(connection=None):
