@@ -12,7 +12,9 @@ This value denotes the upper limit (in seconds) on a signals average
 reporting time, for that signal to be considered "valid." That is, for
 a signal to be included in the set of signals for which predictions
 are made. Sensors with reporting rates greater-than the value
-specified via this parameter will not be members of that set.
+specified via this parameter will not be members of that set. A value
+of zero indicates that all sensors should be considered, irrespective
+of their reporting rates.
 
 Caveats:
 
