@@ -113,25 +113,30 @@ class Machine:
                 
         return observations
 
+    #
+    # Splits the data into training and test sets. Returns stratified
+    # portions as a generator
+    #
     def stratify(self, observations, folds, testing=0.2, no_labels=1):
         assert(0 < testing < 1)
 
         data = np.asfarray(observations)
         assert(np.isfinite(data).all())
 
-        features = data[:,:-no_labels]
         labels = data[:,-no_labels:].ravel()
-        
         s = StratifiedShuffleSplit(labels, n_iter=folds, test_size=testing)
-
-        if self.jam_classifier:
-            if s.classes.size != self.jam_classifier.categories:
-                raise StopIteration
-
+        if not self.legal_stratification(s):
+            raise StopIteration
+        features = data[:,:-no_labels]
+        
         for (train, test) in s:
             x = (features[train], features[test], labels[train], labels[test])
             yield x
 
+    #
+    # Cycle through requested learning methods. Returns an instance
+    # of the method and its name as a generator
+    #
     def machinate(self, methods):
         wanted = set(methods.split(','))
         for i in wanted.intersection(self._machines.keys()):
@@ -215,6 +220,8 @@ class Machine:
     def metrics(self):
         return self.__tostr(self._metrics)
 
+    # Abstract methods
+
     def _features(self, nodes, left):
         raise NotImplementedError()
     
@@ -222,6 +229,9 @@ class Machine:
         raise NotImplementedError()
 
     def set_probabilities(self, clf, x):
+        raise NotImplementedError()
+
+    def legal_stratification(self, stratification):
         raise NotImplementedError()
     
 class Classifier(Machine):
@@ -310,6 +320,9 @@ class Classifier(Machine):
         label = self.jam_classifier.classify(duration, l, r)
         
         return [ int(label) ]
+
+    def legal_stratification(self, stratification):
+        return stratification.classes.size == self.jam_classifier.categories
 
 class Estimator(Machine):
     def __init__(self, nid, config, aggregator=ag.simple):
