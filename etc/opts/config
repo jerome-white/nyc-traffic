@@ -1,7 +1,7 @@
 prefix,dest,type,default,action,choices
 reporting-threshold,reporting,float,0,
 output-directory,output,,,,
-skeleton-file,skelton,,'',,
+skeleton,skeleton,,'',,
 parallel,parallel,,,store_true,
 sequential,parallel,,,store_false,
 verbose,verbose,,,store_true,
