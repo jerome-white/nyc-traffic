@@ -31,9 +31,11 @@ $phome/mkconfigs.py \
     --output-directory $tmp \
     --parallel \
     --verbose
-i=1
-for i in $tmp/*; do
-    echo "[ `date` : $i ] $REPLY" >> $out/trace
-    python3 $phome/main.py --config $i
+
+i=0
+configs=( `ls $tmp/*` )
+for j in ${configs[@]}; do
+    echo "[ `date` : $i / ${#configs[@]} ] $j " >> $out/trace
+    python3 $phome/main.py --config $j
     (( i++ ))
 done > $out/dat 2> $out/log
