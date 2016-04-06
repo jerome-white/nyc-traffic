@@ -1,11 +1,12 @@
 import sys
-import machine
+from estimator import Estimator
+from classifier import Classifier
 
 from lib import db
 from lib import cli
-from lib import aggregator
 from csv import DictWriter
 from lib import logger
+from lib import aggregator as ag
 from lib.node import nodegen
 from collections import namedtuple
 from configparser import ConfigParser
@@ -34,15 +35,15 @@ class ResultsWriter:
 # .ini file!
 #
 machine_ = {
-    'classification': machine.Classifier,
-    'estimation': machine.Estimator,
+    'classification': Classifier,
+    'estimation': Estimator,
 }
 
 aggregator_ = {
-    'simple': aggregator.simple,
-    'change': aggregator.change,
-    'average': aggregator.average,
-    'difference': aggregator.difference,
+    'simple': ag.simple,
+    'change': ag.change,
+    'average': ag.average,
+    'difference': ag.difference,
 }
 
 #
