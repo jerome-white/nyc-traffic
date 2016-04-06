@@ -31,7 +31,7 @@ Caveats:
 
 The top-level directory into which configuration files will be written
 
-#### `--skeleton-file`
+#### `--skeleton`
 
 An existing INI file on which to base this configuration. What is
 produced by `mkconfig.py` is essentially concatenated to this. This
