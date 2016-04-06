@@ -45,7 +45,7 @@ IDs to processes; during a sequential run signal IDs are specified in
 the configuration file, and Python runs the predictor for just that
 ID.
 
-####  --verbose or --no-verbose
+####  --verbose or --quiet
 
 Produce configuration files quietly, or provide feedback. In either
 case, errors are reported.

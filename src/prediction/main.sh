@@ -31,7 +31,7 @@ python3 $phome/mkconfigs.py \
     --output-directory $tmp \
     --skeleton $NYCTRAFFIC/etc/opts/prediction.ini \
     --parallel \
-    --verbose
+    --quiet
 
 i=0
 configs=( `ls $tmp/*` )

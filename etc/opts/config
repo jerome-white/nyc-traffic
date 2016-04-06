@@ -1,8 +1,8 @@
 prefix,dest,type,default,action,choices
-reporting-threshold,reporting,float,0,
+reporting-threshold,reporting,int,0,
 output-directory,output,,,,
 skeleton,skeleton,,'',,
 parallel,parallel,,,store_true,
 sequential,parallel,,,store_false,
 verbose,verbose,,,store_true,
-no-verbose,verbose,,,store_false,
+quiet,verbose,,,store_false,
