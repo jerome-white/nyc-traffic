@@ -62,10 +62,12 @@ helper = {
 for (i, o) in enumerate(product(options)):
     if args.parallel:
         nodes = [ None ]
+        if not i:
+            db.genop(args.reporting)
     else:
-        db.genop(args.reporting) # so that getnodes works properly
+        db.genop(args.reporting)
         nodes = node.getnodes()
-        
+    
     for n in nodes:
         config = configparser.ConfigParser()
         if args.skeleton:
