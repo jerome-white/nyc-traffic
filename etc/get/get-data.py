@@ -10,8 +10,8 @@ import xml.dom.minidom as dom
 import xml.etree.ElementTree as et
 
 from lib import cli
+from lib import logger
 from pathlib import Path
-from lib.logger import log
 from tempfile import NamedTemporaryFile
 from requests.exceptions import RequestException
 
@@ -39,7 +39,9 @@ class GetRemoteXML:
 
             return r.text
 
+        log = logger.getlogger()
         log.error(elist)
+        
         raise AttributeError('Retries exceeded')
         
     def __init__(self, url, retries, timeout, reading, node):
@@ -219,6 +221,7 @@ try:
     data.to_file(args.output)
     # data.check(args.output)
 except AttributeError as err:
+    log = logger.getlogger()
     log.critical(err)
 except AssertionError:
     (*_, tb) = sys.exc_info()
@@ -227,5 +230,6 @@ except AssertionError:
     if data.doc:
         fname = handle_error(data.doc)
         tb_info.append(fname)
-            
+        
+    log = logger.getlogger()        
     log.critical(' '.join(map(str, tb_info)))
