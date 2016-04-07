@@ -1,0 +1,5 @@
+# m h  dom mon dow   command
+* * * * * $HOME/bin/get-data.sh -l nyc -t reading
+* * * * * $HOME/bin/get-data.sh -l mass -t reading
+*/5 * * * * $HOME/bin/get-ireland.sh
+2 4 * * 5 $HOME/bin/store-traffic.sh
