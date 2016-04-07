@@ -48,7 +48,7 @@ options = {
     'observation': [ str(x) for x in [ 12 ] ],
     'prediction': [ str(x) for x in [ 3 ] ],
     'target': [ str(x) for x in [ 8 ] ],
-    'depth':  [ str(x) for x in range(8) ],
+    'depth': [ str(x) for x in range(8) ],
 }
 
 #
