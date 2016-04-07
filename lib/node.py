@@ -121,7 +121,7 @@ class Node:
         data = pd.read_sql_query(sql, con=connection, index_col='as_of')
         data.columns = [ 'speed', 'travel' ]
         
-        return data.resample(self.freq) if self.freq else data
+        return data.resample(self.freq).mean() if self.freq else data
 
     def range(self, window, bound=True):
         idx = self.readings.index
