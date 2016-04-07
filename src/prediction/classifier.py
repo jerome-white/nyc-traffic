@@ -3,6 +3,7 @@ import sklearn.metrics
 
 import lib.cpoint as cp
 import lib.aggregator as ag
+import scipy.constants as constant
 
 from lib import logger
 from collections import namedtuple
