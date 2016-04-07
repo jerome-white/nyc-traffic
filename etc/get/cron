@@ -1,5 +1,5 @@
 # m h  dom mon dow   command
-* * * * * $NYCTRAFFIC/etc/get/get-data.sh -l nyc -t reading
-* * * * * $NYCTRAFFIC/etc/get/get-data.sh -l mass -t reading
-*/5 * * * * $NYCTRAFFIC/etc/get/get-ireland.sh
-2 4 * * 5 $NYCTRAFFIC/etc/get/store-traffic.sh
+* * * * * $HOME/bin/get-data.sh -l nyc -t reading
+* * * * * $HOME/bin/get-data.sh -l mass -t reading
+*/5 * * * * $HOME/bin/get-ireland.sh
+2 4 * * 5 $HOME/bin/store-data.sh
