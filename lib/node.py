@@ -6,23 +6,32 @@ import scipy.constants as constant
 
 from lib import db
 from tempfile import NamedTemporaryFile
-from lib.logger import log
 from statsmodels.tsa import stattools as st
 
-def getnodes(connection):
-    sql = 'SELECT id FROM operational ORDER BY id ASC'
-    
+def getnodes(connection=None):
+    result = '@id'
+
+    if not connection:
+        with db.DatabaseConnection() as conn:
+            yield from getnodes(conn)
+            return
+        
     with db.DatabaseCursor(connection) as cursor:
-        cursor.execute(sql)
-        for row in cursor:
-            yield row['id']
-            
-def nodegen(args=None):
-    k = tuple(args) if type(args) == list else args
-    
+        while True:
+            cursor.execute('CALL getnode({0})'.format(result))
+
+            cursor.execute('SELECT {0}'.format(result))
+            row = cursor.fetchone()
+            if not row[result]:
+                raise StopIteration
+
+            yield row[result]
+
+def nodegen(*args):
     with db.DatabaseConnection() as conn:
         for (i, j) in enumerate(getnodes(conn)):
-            yield (i, j, k)
+            tup = (i, j, args) if len(args) else (i, j)
+            yield tup
 
 def nacount(data, col='speed'):
     return data[col].isnull().sum()

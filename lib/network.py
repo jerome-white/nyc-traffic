@@ -1,8 +1,8 @@
 from lib import db
+from lib import logger
 from lib import node as nd
 from lib import cluster as cl
 from itertools import chain
-from lib.logger import log
 
 class Network:
     def __build(self, level, cluster, db_conn, seen):
@@ -10,6 +10,7 @@ class Network:
             try:
                 cl = cluster(self.node.nid, db_conn)
             except AttributeError as err:
+                log = logger.getlogger()
                 log.error(err)
                 return
             
@@ -20,6 +21,7 @@ class Network:
                 try:
                     lag = cl.lag(i) + self.lag
                 except ValueError as err:
+                    log = logger.getlogger()
                     log.error(err)
                     continue
                 

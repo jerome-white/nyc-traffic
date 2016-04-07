@@ -7,7 +7,6 @@ import statsmodels.tsa.vector_ar.var_model as vm
 from numpy.linalg import LinAlgError
 
 from lib import db
-from lib.logger import log
 
 _threshold = 0.01
 _maxlags = 5

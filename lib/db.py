@@ -1,5 +1,17 @@
 import pymysql
 
+from collections import namedtuple
+
+Credentials = namedtuple('Credentials', [ 'host', 'user', 'db' ])
+class EstablishCredentials:
+    credentials = None
+    
+    def __new__(self, host='localhost', user='reader', db='traffic'):
+        if not self.credentials:
+            self.credentials = Credentials(host, user, db)
+
+        return self
+
 class Database:
     def __enter__(self):
         return self.resource
@@ -8,14 +20,15 @@ class Database:
         self.resource.close()
         
 class DatabaseConnection(Database):
-    def __init__(self, host='localhost', user='reader', db='traffic'):
+    def __init__(self):
         kwargs = {
-            'host': host,
-            'user': user,
-            'db': db,
             'autocommit': True,
             # 'unix_socket': '/usr/local/mysql/data/mysql.sock',
         }
+
+        ec = EstablishCredentials()
+        kwargs.update(ec.credentials._asdict())
+        
         self.resource = pymysql.connect(**kwargs)
 
 class DatabaseCursor(Database):
