@@ -123,7 +123,7 @@ class Machine:
     def machinate(self, methods):
         wanted = set(methods.split(','))
         for i in wanted.intersection(self._machines.keys()):
-            factory = self._machines[x]
+            factory = self._machines[i]
             instance = factory.construct(**factory.kwargs)
             
             yield (factory.construct.__name__, instance)
