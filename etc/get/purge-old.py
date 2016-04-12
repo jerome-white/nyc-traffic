@@ -10,6 +10,7 @@ sql = [
 ]
 sql = db.process(sql, [ '2014-11-07' ])
 
-with db.DatabaseConnection(user='social') as connection:
+db.EstablishCredentials(user='social')
+with db.DatabaseConnection() as connection:
     with db.DatabaseCursor(connection) as cursor:
         cursor.execute(sql)
