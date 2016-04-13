@@ -28,7 +28,7 @@ done
 tmp=`mktemp --directory`
 python3 $phome/mkconfigs.py \
     --reporting-threshold 120 \
-    --output-directory $tmp \
+    --output-directory $out \
     --skeleton $NYCTRAFFIC/etc/opts/prediction.ini \
     --parallel \
     --quiet

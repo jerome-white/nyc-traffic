@@ -17,6 +17,12 @@ def product(d):
 
 cargs = cli.CommandLine(cli.optsfile('config')) # /etc/opts/config
 args = cargs.args
+tmpargs = {
+    'mode': 'w',
+    'delete': False,
+    'dir': args.output,
+    'suffix': '.ini',
+}
 
 #
 # Options that can be simultaneous during a single run
@@ -62,7 +68,7 @@ helper = {
 for (i, o) in enumerate(product(options)):
     if args.parallel:
         nodes = [ None ]
-        if not i:
+        if i == 0:
             db.genop(args.reporting)
     else:
         db.genop(args.reporting)
@@ -94,7 +100,7 @@ for (i, o) in enumerate(product(options)):
         if n is not None:
             config[p]['node'] = str(n)
 
-        with NamedTemporaryFile(mode='w', delete=False, dir=args.output) as fp:
+        with NamedTemporaryFile(**tmpargs) as fp:
             if args.verbose:
                 print(fp.name)
             config.write(fp)
