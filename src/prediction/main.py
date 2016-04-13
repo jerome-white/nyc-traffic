@@ -55,11 +55,6 @@ def run(args):
     log = logger.getlogger()
     log.info('node: {0}'.format(node))
 
-    # Establish the database credentials. Passing None uses the
-    # defaults.
-    dbinfo = config['database'] if 'database' in config else None
-    db.EstablishCredentials(**dbinfo)
-
     opts = config['machine']
     machine = machine_[opts['model']]
     aggregator = aggregator_[opts['feature-transform']]
@@ -88,6 +83,11 @@ config.read(cargs.args.config) # --config
 
 params = config['parameters']
 writer = ResultsWriter(config['output'].getboolean('print-header'))
+
+# Establish the database credentials. Passing None uses the
+# defaults.
+dbinfo = config['database'] if 'database' in config else None
+db.EstablishCredentials(**dbinfo)
 
 #
 # Processing
