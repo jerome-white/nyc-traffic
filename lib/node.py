@@ -9,17 +9,15 @@ from tempfile import NamedTemporaryFile
 from statsmodels.tsa import stattools as st
 
 def getnodes(connection=None):
-    result = '@id'
-
     if not connection:
         with db.DatabaseConnection() as conn:
             yield from getnodes(conn)
-            return
+        return
         
+    result = '@id'        
     with db.DatabaseCursor(connection) as cursor:
         while True:
             cursor.execute('CALL getnode({0})'.format(result))
-
             cursor.execute('SELECT {0}'.format(result))
             row = cursor.fetchone()
             if not row[result]:
