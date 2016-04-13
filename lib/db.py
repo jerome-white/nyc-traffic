@@ -10,7 +10,7 @@ class EstablishCredentials:
         if not self.credentials:
             self.credentials = Credentials(host, user, db)
 
-        return self
+        return self.credentials
 
 class Database:
     def __enter__(self):
@@ -26,8 +26,8 @@ class DatabaseConnection(Database):
             # 'unix_socket': '/usr/local/mysql/data/mysql.sock',
         }
 
-        ec = EstablishCredentials()
-        kwargs.update(ec.credentials._asdict())
+        credentials = EstablishCredentials()
+        kwargs.update(credentials._asdict())
         
         self.resource = pymysql.connect(**kwargs)
 
