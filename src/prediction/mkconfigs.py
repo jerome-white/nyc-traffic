@@ -68,8 +68,6 @@ helper = {
 for (i, o) in enumerate(product(options)):
     if args.parallel:
         nodes = [ None ]
-        if i == 0:
-            db.genop(args.reporting)
     else:
         db.genop(args.reporting)
         nodes = node.getnodes()
