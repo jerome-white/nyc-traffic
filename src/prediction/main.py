@@ -78,6 +78,7 @@ log.info('phase 1')
 log.info('db version: {0}'.format(db.mark()))
 
 cargs = cli.CommandLine(cli.optsfile('prediction')) # /etc/opts/prediction
+
 config = ConfigParser()
 config.read(cargs.args.config) # --config
 
@@ -95,8 +96,8 @@ db.EstablishCredentials(**dbinfo)
 log.info('phase 2')
 
 if 'node' in params:
-    args = (0, int(params['node']), config)
-    writer.write(run(args))
+    results = run((0, int(params['node']), config))
+    writer.write(results)
 else:
     with Pool() as pool:
         for i in pool.imap_unordered(run, nodegen(config), 1):
@@ -106,4 +107,3 @@ else:
 # Tear down
 #
 log.info('phase 3')
-
