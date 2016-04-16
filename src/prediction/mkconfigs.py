@@ -21,6 +21,7 @@ tmpargs = {
     'mode': 'w',
     'delete': False,
     'dir': args.output,
+    'prefix': '', # the default (None) is actually 'tmp'
     'suffix': '.ini',
 }
 
