@@ -21,7 +21,6 @@ class Machine:
         self.config = config
         self.aggregator = aggregator
         self.network = None
-        self.jam_classifier = None
         self.log = logger.getlogger()
 
         self.nhandler = {
