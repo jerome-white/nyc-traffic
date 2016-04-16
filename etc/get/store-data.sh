@@ -49,7 +49,9 @@ options=(
     log-error=$HOME/log/mysqldump.err
 )
 opts=( `sed -e's/ / --/g' <<< ${options[@]}` )
-mysqldump --${opts[@]} traffic | bzip2 --best > $DATA/mysql/`date +'%F'`.bz
+fname=$DATA/mysql/`date +'%F'`.bz
+mysqldump --${opts[@]} traffic | bzip2 --best > $fname
+chmod 444 $fname
 
 #
 # Purge old archives and backups
