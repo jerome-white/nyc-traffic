@@ -20,9 +20,13 @@ while getopts "l:f:d:h" OPTION; do
 $0 [options]
  -l log directory
  -f filters
+ -d display
 
-Both can be specified multiple times; all filters will be applied to
-all log directories.
+Log directory and filters can be specified multiple times; all filters
+will be applied to all log directories.
+
+Display should be either 'monitor' or 'presentation', depending on
+where the generated figures will be consumed.
 EOF
 	    exit
 	    ;;

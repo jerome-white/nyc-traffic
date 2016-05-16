@@ -131,7 +131,7 @@ def anova(df, cluster_directory):
 
 plotargs = {
     # keys must be valid --display options
-    'monitor': PlotArgs((120, 20), 36),
+    'presentation': PlotArgs((120, 20), 36),
     'paper': PlotArgs((7, 3), 10),
     }
             
