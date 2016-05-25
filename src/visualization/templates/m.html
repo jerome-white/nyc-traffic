@@ -1,0 +1,53 @@
+<html>
+  <head>
+    <title>Markers</title>
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+    <style>
+      html, body { height: 100%; margin: 0; padding: 0; }
+      #map { height: 100%; }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script>
+      var map;
+      function initMap() {
+        map = new google.maps.Map(document.getElementById('map'), {
+          center: {lat: 40.752674, lng: -73.985883},
+          zoom: 11,
+          mapTypeId: google.maps.MapTypeId.TERRAIN,
+        });
+        {% for i in segments %}
+          var segment_{{ i.id }} = [
+            {% for (x, y) in i.coordinates %}
+               { lat: {{ x }}, lng: {{ y }} },
+            {% endfor %}
+          ];
+
+          var segmentLine_{{ i.id }} = new google.maps.Polyline({
+            path: segment_{{ i.id }},
+            geodesic: true,
+            strokeColor: '{{ i.color }}',
+            strokeOpacity: 1.0,
+            strokeWeight: 2
+          });
+          segmentLine_{{ i.id }}.setMap(map);
+
+          var marker_{{ i.id }}{{ loop.counter }} = new google.maps.Marker({
+            {% set j = i.coordinates|length // 2 %}
+            position: {
+               lat: {{ i.coordinates[j][0] }},
+               lng: {{ i.coordinates[j][1] }}
+            },
+            title: "{{ i.id }}",
+            map: map,
+          });
+          marker_{{ i.id }}{{ loop.counter }}
+        {% endfor %}
+      }
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ api }}&callback=initMap"
+    async defer></script>
+  </body>
+</html>
