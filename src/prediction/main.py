@@ -75,7 +75,6 @@ def run(args):
 
 log = logger.getlogger(True)
 log.info('phase 1')
-log.info('db version: {0}'.format(db.mark()))
 
 cargs = cli.CommandLine(cli.optsfile('prediction')) # /etc/opts/prediction
 
@@ -89,6 +88,7 @@ writer = ResultsWriter(config['output'].getboolean('print-header'))
 # defaults.
 dbinfo = config['database'] if 'database' in config else None
 db.EstablishCredentials(**dbinfo)
+log.info('db version: {0}'.format(db.mark()))
 
 #
 # Processing
