@@ -60,9 +60,10 @@ class StaticNeighbors(NeighborStrategy):
             self.columns = self.columns[::-1]
         
     def get_sql(self, nid):
-        sql = [ 'SELECT {1} AS nid',
-                'FROM network',
-                'WHERE {2} = {0}',
+        sql = [ 'SELECT n.{1} AS nid',
+                'FROM network n',
+                'LEFT JOIN operational o ON n.{1} = o.id',
+                'WHERE n.{2} = {0} AND o.id IS NOT NULL',
                 ]
-        
+
         return db.process(sql, [ nid ] + self.columns)
