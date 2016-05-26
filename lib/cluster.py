@@ -7,6 +7,7 @@ import statsmodels.tsa.vector_ar.var_model as vm
 from numpy.linalg import LinAlgError
 
 from lib import db
+from lib import neighbors
 
 _threshold = 0.01
 _maxlags = 5
@@ -18,8 +19,9 @@ class Cluster:
         close = not connection
         if close:
             connection = db.DatabaseConnection().resource
-        
-        self.neighbors = nd.get_neighbors(self.nid, connection)
+
+        strategy = neighbors.StaticNeighbors(connection)
+        self.neighbors = strategy.get_neighbors(self.nid)
         self.readings = self.__get_readings(self.neighbors, connection, freq)
             
         if close:
