@@ -68,18 +68,38 @@ class Node:
     def __init__(self, nid, connection=None, freq='T'):
         self.nid = nid
         self.freq = freq
+        self.length = None
 
         close = not connection
         if close:
             connection = db.DatabaseConnection().resource
             
         self.name = self.__get_name(connection)            
-        self.readings = self.__get_readings(connection)
+        self.readings = self.__get_readings(connection, 0.3)
         # self.neighbors = get_neighbors(self.nid, connection)
 
         if close:
             connection.close()
 
+    def __len__(self):
+        if self.length is None:
+            with db.DatabaseConnection() as connection:
+                with db.DatabaseCursor(connection) as cursor:
+                    sql = [ 'SELECT ST_LENGTH(segment) * 69 AS length',
+                            'FROM reading',
+                            'WHERE id = {0}',
+                            ]
+                    sql = db.process(sql, [ self.nid ])
+                    
+                    cursor.execute(sql)
+                    if cursor.rowcount == 1:
+                        row = cursor.fetchone()
+                        self.length = float(row['length'])
+                    else:
+                        self.length = -1
+            
+        return self.length
+            
     def __repr__(self):
         return str(self.nid)
     
@@ -108,12 +128,21 @@ class Node:
 
         return row['name']
         
-    def __get_readings(self, connection):
+    def __get_readings(self, connection, speed_threshold=None):
         sql = [ 'SELECT as_of, speed, travel_time / {1} AS travel',
                 'FROM reading',
                 'WHERE node = {0}',
-                'ORDER BY as_of ASC',
                 ]
+        
+        # speed_threshold is intended to remove outliers. If
+        # specified, it will restrict the results to speeds that are
+        # that percentage above the New York speed limit (65 mph).
+        if speed_threshold is not None:
+            s = 'AND speed < {0}'.format(65 * (1 + speed_threshold))
+            sql.append(s)
+            
+        sql.append('ORDER BY as_of ASC')
+        
         sql = db.process(sql, [ self.nid, constant.minute ])
         
         data = pd.read_sql_query(sql, con=connection, index_col='as_of')
