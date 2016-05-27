@@ -47,7 +47,7 @@ def f(*args):
     node = nd.Node(nid)
     stats = []
     for _ in range(window.prediction):
-        stats.append([ 0 for _ in range(window.target) ])
+        stats.append([ 0 ] * range(window.target))
 
     for i in loop(window):
         args = [ i, classify ]
