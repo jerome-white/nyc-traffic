@@ -28,3 +28,9 @@ class Window:
     
     def tail(self):
         return Window(self.target, self.prediction, self.target)
+
+def from_config(config):
+    w = [ 'observation', 'prediction', 'target' ]
+    
+    return Window(*[ int(config['window'][x]) for x in w ])
+    
