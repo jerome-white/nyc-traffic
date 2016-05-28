@@ -12,6 +12,5 @@ ini=/data/jsw7/traffic/log/characterise
 for i in $ini/*; do
     grep --silent 'depth = 0' $i || continue
     echo $i
-    python3 $NYCTRAFFIC/src/characterise/classify.py --config $i # || break
-    break
+    python3 $NYCTRAFFIC/src/characterise/classify.py --config $i || break
 done
