@@ -1,6 +1,7 @@
 #!/bin/bash
 
-ini=/data/jsw7/traffic/log/characterise
+ini=$NYCTRAFFICLOG/characterise/classify
+mkdir --parents $ini
 
 # python3 $NYCTRAFFIC/src/prediction/mkconfigs.py \
 #     --reporting-threshold 120 \
