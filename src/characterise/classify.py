@@ -36,12 +36,9 @@ def f(args):
 
     log.info('{0} apply'.format(nid))
 
-    kwargs = {
-        'min_periods': len(window),
-        'center': True,
-        'args': [ window, classifier ]
-        }
-    df = pd.rolling_apply(node.readings.speed, len(window), rapply, **kwargs)
+    speed = node.readings.speed
+    rolling = speed.rolling(len(window), min_periods=len(window), center=True)
+    df = rolling.apply(rapply, args=[ window, classifier ])
 
     log.info('{0} finish'.format(nid))
     
@@ -79,5 +76,5 @@ with Pool() as pool:
 log.info('dumping')
 
 pkl = Path(cargs.args.config)
-with open(pkl.with_suffix('.pkl'), mode='wb') as fp:
+with open(str(pkl.with_suffix('.pkl')), mode='wb') as fp:
     pickle.dump(d, fp)
