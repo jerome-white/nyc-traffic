@@ -4,17 +4,17 @@ import collections
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import lib.cpoint as cp
 import scipy.constants as constant
 import matplotlib.pyplot as plt
 
 from lib import db
 from lib import cli
 from lib import utils
-from lib import cpoint
+from lib import logger
 # from lib import data
 from lib import node as nd
 from pathlib import Path
-from lib.logger import log
 from lib.window import Window
 from multiprocessing import Pool
 
@@ -25,11 +25,10 @@ def loop(window):
         for j in range(1, window.target):
             yield Window(j, i, j)
 
-def rapply(df, window, classify):
+def rapply(df, window, classifier):
     '''
     determine whether a window constitutes a traffic event
     '''
-
     assert(type(df) == np.ndarray)
 
     segments = (df[:window.target], df[-window.target:])
@@ -37,30 +36,30 @@ def rapply(df, window, classify):
         return np.nan
     (left, right) = [ x.mean() for x in segments ]
 
-    return classify(window.prediction + 1, left, right)
+    return classifier.classify(window.prediction + 1, left, right)
     
 def f(*args):
-    (index, nid, (window, classify, freq)) = args
+    (index, nid, (window, threshold, freq)) = args
     
     log.info('{0} create'.format(nid))
 
-    node = nd.Node(nid)
-    stats = []
-    for _ in range(window.prediction):
-        stats.append([ 0 ] * range(window.target))
+    classifier = cp.Acceleration(threshold)
+    readings = nd.Node(nid).readings.speed
+    stats = [ [ 0 ] * window.target for _ in range(window.prediction) ]
 
     for i in loop(window):
-        args = [ i, classify ]
-        df = pd.rolling_apply(node.readings.speed, len(i), rapply, args=args)
+        rolling = readings.rolling(len(window), min_periods=len(window),
+                                   center=True)
+        df = rolling.apply(rapply, args=[ i, classifier ])
         log.info('{0} {1} {2} {3}'.format(nid, i, df.sum(), df.count()))
         stats[i.prediction][i.target] = df.resample(freq, how=sum)
         
     return stats
 
-def g(*args):
-    (prediction, target, data, aggregate) = args
+# def g(*args):
+#     (prediction, target, data, aggregate) = args
     
-    return aggregate(data[prediction][target])
+#     return aggregate(data[prediction][target])
 
 def var2std(df):
     d = pd.DataFrame()
@@ -76,6 +75,8 @@ def heatplot(fig, directory, fname, labels, extension='png'):
 
 #############################################################################
 
+log = logger.getlogger(True)
+
 cargs = cli.CommandLine(cli.optsfile('chgpt'))
 args = cargs.args
 window = Window(args.window_obs, args.window_pred, args.window_trgt)
@@ -84,12 +85,11 @@ if args.resume:
     with open(args.resume, mode='rb') as fp:
         observations = pickle.load(fp)
 else:
+    # dbinfo = config['database'] if 'database' in config else None
+    # db.EstablishCredentials(**dbinfo)
     db.genop(args.reporting)
-    classifier = cpoint.Acceleration(args.threshold)    
-    opts = [ window, classifier.classify, 'D' ]
-    
     with Pool() as pool:
-        observations = pool.starmap(f, nd.nodegen(opts))
+        observations = pool.starmap(f, nd.nodegen(window, args.threshold, 'D'))
         
     if args.pickle:
         with open(args.pickle, mode='wb') as fp:
