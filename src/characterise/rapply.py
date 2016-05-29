@@ -13,4 +13,4 @@ def f(df, window, classifier):
             return np.NaN
         left_right.append(i.mean())
 
-    return classifier.classify(window.prediction + 1, *left_right)
+    return classifier.classify(window.prediction, *left_right)
