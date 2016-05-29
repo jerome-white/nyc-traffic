@@ -8,15 +8,13 @@ class ChangePoint:
     def __init__(self, threshold, categories=2):
         self.threshold = threshold
         self.categories = categories
-
-    def change(self, duration, before, after):
-        raise NotImplementedError()
     
     def classify(self, duration, before, after):
         '''
         duration: minutes
         before, after: miles per hour
         '''
+        
         if self.threshold < 0:
             args = [ before, after ]
             f = operator.le
@@ -26,6 +24,9 @@ class ChangePoint:
         diff = self.change(duration, *args)
 
         return f(diff, self.threshold)
+    
+    def change(self, duration, before, after):
+        raise NotImplementedError()
 
 class Acceleration(ChangePoint):
     def change(self, duration, before, after):
