@@ -15,7 +15,7 @@ from configparser import ConfigParser
 from multiprocessing import Pool
 
 #############################################################################
-    
+
 def f(args):
     (index, nid, (window, threshold)) = args
     
@@ -30,18 +30,21 @@ def f(args):
     srs = pd.Series()
     for (l, r) in node.range(window):
         left = speed[l]
-        if not left.isnull().values.any():
-            lmean = left.mean()
-            for i in itertools.count():
-                index = r.union(r + i)
-                right = speed[index]
-                if right.isnull().values.any():
-                    break
-                rmean = right.mean()
-                if not classifier.classify(window.prediction, lmean, rmean):
-                    break
+        if left.isnull().values.any():
+            break
+        lmean = left.mean()
+        
+        for i in itertools.count():
+            index = r.union(r + i)
+            right = speed[index]
+            if right.isnull().values.any():
+                break
+            rmean = right.mean()
             
-        srs.set_value(r[0], i)
+            if not classifier.classify(window.prediction, lmean, rmean):
+                break
+            
+        srs.set_value(r[0], len(index))
 
     log.info('{0} finish')
     
