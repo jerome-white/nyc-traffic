@@ -52,7 +52,7 @@ def f(*args):
                                    center=True)
         df = rolling.apply(rapply, args=[ i, classifier ])
         log.info('{0} {1} {2} {3}'.format(nid, i, df.sum(), df.count()))
-        stats[i.prediction][i.target] = df.resample(freq, how=sum)
+        stats[i.prediction][i.target] = df.resample(freq).sum()
         
     return stats
 
