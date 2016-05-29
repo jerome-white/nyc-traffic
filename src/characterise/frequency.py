@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 from lib import db
 from lib import cli
+from lib import ngen
 from lib import utils
 from lib import logger
 from lib import node as nd
