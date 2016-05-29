@@ -22,7 +22,7 @@ dir=`mklogdir $NYCTRAFFICLOG/characterise`
 # dir=$NYCTRAFFICLOG/characterise/2015_11-06_0340.samjam.local
 pkl=$dir/observations.pkl
 
-python3 $NYCTRAFFIC/src/characterise/characterise.py \
+python3 $NYCTRAFFIC/src/characterise/frequency.py \
     	--prediction-window 11 \
     	--target-window 11 \
     	--speed-threshold -0.002 \
