@@ -18,7 +18,7 @@ mklogdir() {
     echo $out
 }
 
-dir=`mklogdir $NYCTRAFFICLOG/characterise`
+dir=`mklogdir $NYCTRAFFICLOG/characterise/frequency`
 # dir=$NYCTRAFFICLOG/characterise/2015_11-06_0340.samjam.local
 pkl=$dir/observations.pkl
 
