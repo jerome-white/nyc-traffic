@@ -1,5 +1,6 @@
 import pickle
 import collections
+import rapply
 
 import numpy as np
 import pandas as pd
@@ -24,19 +25,6 @@ def loop(window):
     for i in range(window.prediction):
         for j in range(1, window.target):
             yield Window(j, i, j)
-
-def rapply(df, window, classifier):
-    '''
-    determine whether a window constitutes a traffic event
-    '''
-    assert(type(df) == np.ndarray)
-
-    segments = (df[:window.target], df[-window.target:])
-    if np.isnan(segments).any():
-        return np.nan
-    (left, right) = [ x.mean() for x in segments ]
-
-    return classifier.classify(window.prediction + 1, left, right)
     
 def f(*args):
     (index, nid, (window, threshold, freq)) = args
@@ -48,9 +36,8 @@ def f(*args):
     stats = [ [ 0 ] * window.target for _ in range(window.prediction) ]
 
     for i in loop(window):
-        rolling = readings.rolling(len(window), min_periods=len(window),
-                                   center=True)
-        df = rolling.apply(rapply, args=[ i, classifier ])
+        rolling = readings.rolling(len(window), center=True)
+        df = rolling.apply(rapply.f, args=[ i, classifier ])
         log.info('{0} {1} {2} {3}'.format(nid, i, df.sum(), df.count()))
         stats[i.prediction][i.target] = df.resample(freq).sum()
         
@@ -85,11 +72,11 @@ if args.resume:
     with open(args.resume, mode='rb') as fp:
         observations = pickle.load(fp)
 else:
-    # dbinfo = config['database'] if 'database' in config else None
-    # db.EstablishCredentials(**dbinfo)
-    db.genop(args.reporting)
+    # XXX Must establish credentials!
+    g = ngen.SequentialGenerator().nodegen
+    
     with Pool() as pool:
-        observations = pool.starmap(f, nd.nodegen(window, args.threshold, 'D'))
+        observations = pool.starmap(f, g(window, args.threshold, 'D'))
         
     if args.pickle:
         with open(args.pickle, mode='wb') as fp:
