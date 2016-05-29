@@ -1,11 +1,11 @@
 import pickle
 import collections
-import rapply
 
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import lib.cpoint as cp
+import rollingtools as rt
 import scipy.constants as constant
 import matplotlib.pyplot as plt
 
@@ -13,7 +13,6 @@ from lib import db
 from lib import cli
 from lib import utils
 from lib import logger
-# from lib import data
 from lib import node as nd
 from pathlib import Path
 from lib.window import Window
@@ -22,9 +21,9 @@ from multiprocessing import Pool
 #############################################################################
 
 def loop(window):
-    for i in range(window.prediction):
-        for j in range(1, window.target):
-            yield Window(j, i, j)
+    for p in range(1, window.prediction + 1):
+        for t in range(1, window.target + 1):
+            yield Window(t, p, t)
     
 def f(*args):
     (index, nid, (window, threshold, freq)) = args
@@ -33,20 +32,20 @@ def f(*args):
 
     classifier = cp.Acceleration(threshold)
     readings = nd.Node(nid).readings.speed
-    stats = [ [ 0 ] * window.target for _ in range(window.prediction) ]
+    rolling = readings.rolling(len(window), center=True)
 
-    for i in loop(window):
-        rolling = readings.rolling(len(window), center=True)
-        df = rolling.apply(rapply.f, args=[ i, classifier ])
-        log.info('{0} {1} {2} {3}'.format(nid, i, df.sum(), df.count()))
-        stats[i.prediction][i.target] = df.resample(freq).sum()
+    df = df.DataFrame(data=np.zeros((window.prediction, window.target)))
+    for i in [ df.index, df.columns ]:
+        i += 1
         
-    return stats
+    for i in loop(window):
+        frame = rolling.apply(rt.apply, args=[ i, classifier ])
+        log.info('{0} {1} {2} {3}'.format(nid, i, frame.sum(), frame.count()))
 
-# def g(*args):
-#     (prediction, target, data, aggregate) = args
-    
-#     return aggregate(data[prediction][target])
+        aggregate = frame.resample(freq).sum()
+        df.set_value(i.prediction, i.target, aggregate)
+        
+    return df
 
 def var2std(df):
     d = pd.DataFrame()
@@ -86,20 +85,14 @@ else:
 # Collect the data
 #
 
-data = np.zeros((window.prediction, window.target))
-columns = list(range(window.target))
-df_mean = pd.DataFrame(data=data.copy(), columns=columns)
-df_var = pd.DataFrame(data=data.copy(), columns=columns)
+head = observations[0]
+(average, variance) = [ pd.DataFrame() for _ in range(2) ]
 
-for w in loop(window):
-    (_, i, j) = w
-    row = [ x[i][j].mean() for x in observations ]
-    df_mean.loc[i][j] = np.mean(row)
-    df_var.loc[i][j] = np.var(row)
-#    print(w, np.mean(row), '\n', df_mean, '\n')
-    
-for i in (df_mean, df_var):
-    i.drop(0, axis=1, inplace=True)
+for i in head.index:
+    for j in head.columns:
+        vals = [ x.loc[i,j] for x in observations ]
+        for (a, b) in [ (average, np.mean), (variance, np.std) ]:
+            a.set_value(i, j, b(vals))
 
 #
 # Plot
@@ -107,12 +100,16 @@ for i in (df_mean, df_var):
 
 plots = [
     { 'name': 'pwin-twin',
-      'figure': sns.heatmap(df_mean.iloc[::-1], annot=True),
-      'labels': { 'xlabel': 'Target window', 'ylabel': 'Prediction window' },
+      'figure': sns.heatmap(average, annot=True),
+      'labels': { 'xlabel': 'Prediction window',
+                  'ylabel': 'Adjacent windows',
+      },
     },
     { 'name': 'variance',
-      'figure': var2std(df_var).plot(),
-      'labels': { 'xlabel': 'Window size', 'ylabel': 'Std. Deviation' },
+      'figure': variance.plot(),
+      'labels': { 'xlabel': 'Window size',
+                  'ylabel': 'Std. Deviation',
+      },
     },
 ]
 

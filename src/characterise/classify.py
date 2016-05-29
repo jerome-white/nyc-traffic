@@ -1,10 +1,10 @@
 import pickle
-import rapply
 
 import pandas as pd
 import lib.node as nd
 import lib.window as win
 import lib.cpoint as cp
+import rollingtools as rt
 
 from lib import db
 from lib import cli
@@ -28,7 +28,7 @@ def f(args):
 
     speed = node.readings.speed
     rolling = speed.rolling(len(window), center=True)
-    df = rolling.apply(rapply.f, args=[ window, classifier ])
+    df = rolling.apply(rt.apply, args=[ window, classifier ])
 
     log.info('{0} finish'.format(nid))
     

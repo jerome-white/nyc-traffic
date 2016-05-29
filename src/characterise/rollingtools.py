@@ -1,6 +1,6 @@
 import numpy as np
 
-def f(df, window, classifier):
+def apply(df, window, classifier):
     '''
     determine whether a window constitutes a traffic event
     '''
