@@ -8,29 +8,6 @@ from lib import db
 from tempfile import NamedTemporaryFile
 from statsmodels.tsa import stattools as st
 
-def getnodes(connection=None):
-    if not connection:
-        with db.DatabaseConnection() as conn:
-            yield from getnodes(conn)
-        return
-        
-    result = '@id'        
-    with db.DatabaseCursor(connection) as cursor:
-        while True:
-            cursor.execute('CALL getnode({0})'.format(result))
-            cursor.execute('SELECT {0}'.format(result))
-            row = cursor.fetchone()
-            if not row[result]:
-                raise StopIteration
-
-            yield row[result]
-
-def nodegen(*args):
-    with db.DatabaseConnection() as conn:
-        for (i, j) in enumerate(getnodes(conn)):
-            tup = (i, j, args) if len(args) else (i, j)
-            yield tup
-
 def nacount(data, col='speed'):
     return data[col].isnull().sum()
 
