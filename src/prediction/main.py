@@ -1,13 +1,13 @@
 import sys
-from estimator import Estimator
-from classifier import Classifier
 
 from lib import db
 from lib import cli
+from lib import ngen
 from csv import DictWriter
 from lib import logger
 from lib import aggregator as ag
-from lib.node import nodegen
+from estimator import Estimator
+from classifier import Classifier
 from collections import namedtuple
 from configparser import ConfigParser
 from multiprocessing import Pool
@@ -99,8 +99,9 @@ if 'node' in params:
     results = run((0, int(params['node']), config))
     writer.write(results)
 else:
+    gen = ngen.ParallelGenerator()
     with Pool() as pool:
-        for i in pool.imap_unordered(run, nodegen(config), 1):
+        for i in pool.imap_unordered(run, gen.nodegen(config), 1):
             writer.write(i)
 
 #
