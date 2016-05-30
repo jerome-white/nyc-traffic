@@ -1,4 +1,7 @@
 import numpy as np
+from collections import namedtuple
+
+NodeData = namedtuple('NodeData', [ 'node', 'data' ])
 
 def apply(df, window, classifier):
     '''
