@@ -5,6 +5,7 @@ import pandas as pd
 import lib.node as nd
 import lib.window as win
 import lib.cpoint as cp
+import rollingtools as rt
 
 from lib import db
 from lib import cli
@@ -16,39 +17,52 @@ from multiprocessing import Pool
 
 #############################################################################
 
+def jam_duration(left, right, data, prediction, classify):
+    l = data[left]
+    if l.isnull().values.any():
+        raise ValueError()
+    
+    lmean = l.mean()
+    
+    for i in itertools.count():
+        index = right.union(right + i)
+        r = data[index]
+        if r.isnull().values.any():
+            break
+        
+        rmean = r.mean()
+            
+        if not classify(prediction, lmean, rmean):
+            break
+
+    size = len(index) - 1
+    if size < len(right):
+        raise ValueError()
+
+    return size
+
 def f(args):
     (index, nid, (window, threshold)) = args
     
     log.info('{0} create'.format(nid))
 
     node = nd.Node(nid)
-    speed = node.readings.speed
     classifier = cp.Acceleration(threshold)
 
     log.info('{0} apply'.format(nid))
 
-    srs = pd.Series()
+    df = pd.Series()
     for (l, r) in node.range(window):
-        left = speed[l]
-        if left.isnull().values.any():
-            break
-        lmean = left.mean()
-        
-        for i in itertools.count():
-            index = r.union(r + i)
-            right = speed[index]
-            if right.isnull().values.any():
-                break
-            rmean = right.mean()
-            
-            if not classifier.classify(window.prediction, lmean, rmean):
-                break
-            
-        srs.set_value(r[0], len(index))
+        try:
+            duration = jam_duration(l, r, node.readings.speed,
+                                    window.prediction, classifier.classify)
+            df.set_value(r[0], duration)
+        except ValueError:
+            continue
 
     log.info('{0} finish')
     
-    return (nid, srs)
+    return rt.NodeData(nid, df)
 
 #############################################################################
 
@@ -82,11 +96,11 @@ with Pool() as pool:
     w = win.from_config(config)
     a = float(config['parameters']['acceleration'])
     
-    for (nid, df) in pool.imap_unordered(f, g.nodegen(w, a), 1):
-        d = df[df > 0]
+    for result in pool.imap_unordered(f, g.nodegen(w, a), 1):
+        d = result.data[result.data > 0]
         stats = [ d.mean(), d.std() ]
         for i in stats:
-            log.info('stats {0} {1:0.3f}'.format(nid, i))
+            log.info('stats {0} {1:0.3f}'.format(result.node, i))
         
-        p = Path(pth, '{0:03d}'.format(nid))
-        df.to_pickle(str(p))
+        p = Path(pth, '{0:03d}'.format(result.node))
+        result.data.to_pickle(str(p))
