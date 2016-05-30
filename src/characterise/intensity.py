@@ -60,7 +60,7 @@ def f(args):
         except ValueError:
             continue
 
-    log.info('{0} finish')
+    log.info('{0} finish'.format(nid))
     
     return rt.NodeData(nid, df)
 
