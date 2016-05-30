@@ -32,7 +32,7 @@ def f(args):
 
     log.info('{0} finish'.format(nid))
     
-    return (nid, df)
+    return rt.NodeData(nid, df)
 
 #############################################################################
 
@@ -66,15 +66,15 @@ with Pool() as pool:
     win = win.from_config(config)
     acc = float(config['parameters']['acceleration'])
     
-    for (nid, df) in pool.imap_unordered(f, g.nodegen(win, acc), 1):
-        perday = df.resample('D').sum()
-        stats = [ df.sum(),
+    for i in pool.imap_unordered(f, g.nodegen(win, acc), 1):
+        perday = i.data.resample('D').sum()
+        stats = [ i.data.sum(),
                   perday.count(),
                   perday[perday > 0].count(),
                   perday.mean()
                   ]
         for i in stats:
-            log.info('stats {0} {1:0.3f}'.format(nid, i))
+            log.info('stats {0} {1:0.3f}'.format(i.node, i))
         
-        p = Path(pth, '{0:03d}'.format(nid))
-        df.to_pickle(str(p))
+        p = Path(pth, '{0:03d}'.format(i.node))
+        i.data.to_pickle(str(p))
