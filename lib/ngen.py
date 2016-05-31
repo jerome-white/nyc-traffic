@@ -37,12 +37,15 @@ class ParallelGenerator(NodeGenerator):
             yield row[result]
 
 class SequentialGenerator(NodeGenerator):
+    def __init__(self, table='operational'):
+        self.table = table
+        
     def _getnodes(self, cursor):
         sql = [ 'SELECT id',
-                'FROM operational',
+                'FROM {0}',
                 'ORDER BY id ASC',
                 ]
         
-        cursor.execute(db.process(sql))
+        cursor.execute(db.process(sql, self.table))
         for row in cursor:
             yield row['id']
