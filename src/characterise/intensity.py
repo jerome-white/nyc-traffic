@@ -6,51 +6,82 @@ from lib import logger
 
 #############################################################################
 
-def jam_duration(left, right, data, prediction, classify):
-    l = data[left]
-    if l.isnull().values.any():
-        raise ValueError()
-    
-    lmean = l.mean()
-    
+def slide(drange):
     for i in itertools.count():
-        index = right.union(right + i)
-        r = data[index]
-        if r.isnull().values.any():
-            break
+        yield drange + i
+
+class Intensity:
+    def __init__(self, readings, prediction, classifier):
+        self.readings = readings
+        self.prediction = prediction
+        self.classifier = classifier
+
+    def duration(self, left, right):
+        observation = self.readings[left]
+        if observation.isnull().values.any():
+            raise ValueError()
+
+        extended = self._duration(observation, right)
+        if extended.identical(right):
+            raise ValueError()
         
-        rmean = r.mean()
+        assert(extended.freq == right.freq)
+        rng = pd.date_range(right[0], extended[-1], freq=right.freq)
+        
+        return len(rng)
+
+    def _duration(self, observation, right):
+        raise NotImplementedError
+
+class SlidingWindow(Intensity):
+    def _duration(self, observation, right):
+        lmean = left.mean()
+        
+        for i in slide(right):
+            index = right.union(i)
+            r = self.readings[index]
+            if r.isnull().values.any():
+                break
+            rmean = r.mean() # XXX weighted average?
             
-        if not classify(prediction, lmean, rmean):
-            break
+            if not self.classifier.classify(self.prediction, lmean, rmean):
+                break
 
-    size = len(index) - 1
-    if size < len(right):
-        raise ValueError()
+        return i
 
-    return size
+class StandardDeviation(Intensity):
+    def __init__(self, readings, prediction, classifier, deviations=1):
+        super().__init__(readings, prediction, classifier)
+        self.deviations = deviations
+        
+    def _duration(self, observation, right):
+        e = observation.std()
+        
+        for i in slide(right):
+            r = self.readings[i]
+            if r.isnull().values.any() or abs(r.mean() - e) > self.deviations:
+                break
 
+        return i
+    
 def f(args):
     (index, nid, (config, )) = args
-    log = logger.getlogger()
     
-    log.info('{0} create'.format(nid))
     args = rt.mkargs(config)
-
-    log.info('{0} apply'.format(nid))
-
+    intensity = StandardDeviation(args.node.readings.speed,
+                                  args.window.prediction,
+                                  args.classifier)
     df = pd.Series()
+    
+    log = logger.getlogger()
+    log.info('{0} +'.format(nid))
     for (left, right) in args.node.range(window):
         try:
-            duration = jam_duration(left, right,
-                                    args.node.readings.speed,
-                                    args.window.prediction,
-                                    args.classifier.classify)
+            duration = intensity.duration(left, right)
             df.set_value(right[0], duration)
         except ValueError:
-            continue
-
-    log.info('{0} finish'.format(nid))
+            pass
+    log.info('{0} -'.format(nid))
     
     return (nid, df)
 
