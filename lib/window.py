@@ -1,3 +1,5 @@
+ames = [ 'observation', 'prediction', 'target' ]
+        
 class Window:
     def __init__(self, observation, prediction, target):
         self.observation = observation
@@ -15,6 +17,9 @@ class Window:
 
     def __str__(self):
         return repr(self)
+
+    def __list__(self):
+        return [ self.observation, self.prediction, self.target ]
 
     def __iter__(self):
         self.__elements = [ self.observation, self.prediction, self.target ]
