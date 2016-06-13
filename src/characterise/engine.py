@@ -14,10 +14,11 @@ class ProcessingEngine:
         
         # /etc/opts/prediction
         cargs = cli.CommandLine(cli.optsfile(opts))
-        self.log.info('configure ' + cargs.args.config)
+        self.ini = cargs.args.config
+        self.log.info('configure ' + self.ini)
 
         self.config = ConfigParser()
-        self.config.read(cargs.args.config) # --config
+        self.config.read(self.ini) # --config
 
         # Establish the database credentials. Passing None uses the
         # defaults.
@@ -50,7 +51,7 @@ class ProcessingEngine:
                 
     def dump(self, data, fname=None):
         if not fname:
-            pth = Path(self.args.config)
+            pth = Path(self.ini)
             fname = str(pth.with_suffix('.pkl'))
 
         data.to_pickle(fname)
