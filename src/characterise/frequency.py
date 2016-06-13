@@ -1,53 +1,73 @@
-import pickle
-
-import numpy as np
 import pandas as pd
 import seaborn as sns
-import lib.cpoint as cp
-import rollingtools as rt
-import scipy.constants as constant
-import matplotlib.pyplot as plt
 
 from lib import db
-from lib import cli
 from lib import ngen
 from lib import utils
 from lib import logger
-from lib import node as nd
 from pathlib import Path
-from lib.window import Window
 from collections import namedtuple
-from multiprocessing import Pool
 
 #############################################################################
 
 resample_ = 'D'
 # resample_ = '3H'
 
-def loop(window):
-    for p in range(1, window.prediction + 1):
-        for t in range(1, window.target + 1):
-            yield Window(t, p, t)
-    
 def f(args):
     (index, nid, (config, )) = args
     log = logger.getlogger()
+
+    log.info('{0} aquire'.format(nid))
     
-    log.info('{0} create'.format(nid))
-    args = rt.mkargs(config)
+    sql = [ 'SELECT as_of, jam, observation, prediction',
+            'FROM occurrence',
+            'WHERE node = {0}',
+            ]
+    sql = db.process(sql, nid)
+    with db.DatabaseConnection() as con:
+        data = pd.read_sql_query(sql, con=con, index_col='as_of')
+
+    log.info('{0} process'.format(nid))
     
-    df = pd.DataFrame()
-    for i in loop(window):
-        log.info('{0} window {1}'.format(nid, i))
-        frame = args.roller.apply(rt.apply, args=[ i, args.classifier ])
-        aggregate = frame.resample(resample_).sum().mean()
-        df.set_value(i.prediction, i.target, aggregate)
-        
+    levels = ('observation', 'prediction')
+    df = data.groupby(*levels)
+    df = df.resample(config['frequency']).sum()
+    df = df['jam'].mean(level=levels).unstack()
+
     return (nid, df)
 
 #############################################################################
 
+log.info('collect')
+
 engine = ProcessingEngine('chgpt')
 results = engine.run(f, ngen.SequentialGenerator())
 panel = pd.Panel(dict(results))
-engine.dump(panel)
+
+log.info('manipulate')
+
+average = panel.mean(axis=0)
+variance = panel.std(axis=0)
+
+log.info('visualize')
+
+PlotInfo = namedtuple('PlotInfo', [ 'name', 'figure', 'labels' ])
+plots = [
+    PlotInfo('pwin-twin',
+             sns.heatmap(average.iloc[::-1], annot=True, fmt='.0f'),
+             { 'xlabel': 'Prediction window (minutes)',
+               'ylabel': 'Adjacent windows (minutes)',
+             }
+         ),
+    PlotInfo('variance',
+             pd.DataFrame(variance.mean(axis=1)).plot(legend=None),
+             { 'xlabel': 'Adjacent window (minutes)',
+               'ylabel': 'Average standard deviation (minutes)',
+             }
+         ),
+]
+
+for i in plots:
+    i.figure.set(**i.labels)
+    f = Path(args.figures, i.name).with_suffix('.png')
+    utils.mkplot_(i.figure, str(f))
