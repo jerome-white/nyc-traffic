@@ -17,8 +17,12 @@ def f(args):
     log.info('{0} setup'.format(nid))
     args = rt.mkargs(config)
 
-    log.info('{0} application'.format(nid))    
+    log.info('{0} apply'.format(nid))
+    
     df = args.roller.apply(rt.apply, args=[ args.window, args.classifier ])
+    assert(type(df) == pd.Series)
+    df.rename('jam', inplace=True)
+    
     log.info('{0} finished'.format(nid))
     
     return (nid, df)
@@ -26,6 +30,21 @@ def f(args):
 #############################################################################
 
 engine = ProcessingEngine('prediction')
-results = engine.run(f, ngen.SequentialGenerator())
-panel = pd.Panel(dict(results))
-engine.dump(panel)
+log = logger.getlogger()
+
+for outer in range(1, 11):
+    additional = { 'observation': outer }
+    for inner in range(1, 11):
+        additional['prediction'] = inner
+        
+        for (i, j) in zip(win.names, [ outer, inner, outer ]):
+            engine.config['window'][i] = j
+        log.info(engine.config['window'])
+
+        for (nid, df) in engine.run(f, ngen.SequentialGenerator()):
+            additional['node'] = nid
+            for (i, j) in additional.items():
+                df[i] = j
+                
+            with db.DatabaseConnection() as connection:
+                results.to_sql('occurrence', connection, index_label='as_of')
