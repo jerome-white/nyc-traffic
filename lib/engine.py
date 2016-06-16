@@ -29,25 +29,21 @@ class ProcessingEngine:
             reporting = float(self.config['parameters']['intra-reporting'])
             db.genop(reporting)
 
-        self.log.info('db version: {0}'.format(db.mark()))
+        # self.log.info('db version: {0}'.format(db.mark()))
 
-    def run(self, mapper, generator, parallel=True):
+    def run(self, f, generator):
         '''
-        mapper: should return a node id, pandas data frame pair
+        f: should return a node id, pandas data frame pair
         generator: should be of type NodeGenerator
         '''
-        
-        self.log.info('processing')
-        if not parallel:
-            assert('node' in self.config['parameters'])
-            
-            seq = (0, int(self.config['parameters']['node']))
-            return f(seq, self.config)
-                     
-        with Pool() as pool:
-            f = mapper
-            g = generator.nodegen
-            yield from pool.imap_unordered(f, g(self.config), 1)
+
+        if 'node' in self.config['parameters']:
+            node = int(self.config['parameters']['node'])
+            return f((0, node), self.config)
+        else:
+            with Pool() as pool:
+                g = generator.nodegen
+                yield from pool.imap_unordered(f, g(self.config), 1)
                 
     def dump(self, data, fname=None):
         if not fname:
@@ -55,3 +51,8 @@ class ProcessingEngine:
             fname = str(pth.with_suffix('.pkl'))
 
         data.to_pickle(fname)
+
+    def store(self, data, table, index='as_of'):
+        with db.DatabaseConnection() as connection:
+            data.to_sql(table, connection, index_label=index)
+        
