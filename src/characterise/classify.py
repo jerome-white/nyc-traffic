@@ -1,12 +1,9 @@
 import pandas as pd
-import lib.node as nd
-import lib.cpoint as cp
-import lib.window as win
-import rollingtools as rt
 
 from lib import ngen
 from lib import logger
-from lib import window
+from lib import engine
+from lib import rollingtools as rt
 
 #############################################################################
 
@@ -25,18 +22,14 @@ def f(args):
     args = rt.mkargs(config)
 
     log.info('{0} apply'.format(nid))
-    
     df = args.roller.apply(rt.apply, args=[ args.window, args.classifier ])
-    assert(type(df) == pd.Series)
-    df.rename('jam', inplace=True)
-    
     log.info('{0} finished'.format(nid))
     
     return (nid, df)
 
 #############################################################################
 
-engine = ProcessingEngine('prediction')
+engine = engine.ProcessingEngine('prediction')
 log = logger.getlogger()
 
 windows = engine.config['window']
@@ -51,11 +44,13 @@ for observation in range(*observation_):
         windows['prediction'] = prediction
         log.info(engine.config['window'])
 
-        for (nid, df) in engine.run(f, ngen.SequentialGenerator()):
-            # add in columns pertaining to node, observation and prediction
-            df['node'] = nid
-            for i in keys:
-                df[i] = windows[i]
+        for (nid, data) in engine.run(f, ngen.SequentialGenerator()):
+            assert(type(data) == pd.Series)
+            df = pd.DataFrame({ 'jam': data,
+                                'node': nid,
+                                'observation': observation,
+                                'prediction': prediction,
+                                })
 
             # write DataFrame to database
             with db.DatabaseConnection() as connection:
