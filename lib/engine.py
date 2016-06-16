@@ -10,7 +10,7 @@ from multiprocessing import Pool
 class ProcessingEngine:
     def __init__(self, opts, init_db=False):
         self.log = logger.getlogger(True)
-        log.info('phase 1')
+        self.log.info('phase 1')
         
         # /etc/opts/prediction
         cargs = cli.CommandLine(cli.optsfile(opts))
