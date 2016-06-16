@@ -1,17 +1,20 @@
 import numpy as np
+import lib.node as nd
+import lib.cpoint as cp
+import lib.window as win
 
 from collections import namedtuple
 
-CharArgs = namedtuple('CharArgs', [ 'classifier', 'window', 'roller' ])
+CharArgs = namedtuple('CharArgs', [ 'node', 'classifier', 'window', 'roller' ])
 
-def mkargs(config):
+def mkargs(nid, config):
     threshold = float(config['parameters']['acceleration'])    
     classifier = cp.Acceleration(threshold)
     
     window = win.from_config(config)
 
     node = nd.Node(nid)
-    roller = node.speed.readings.rolling(len(window), center=True)    
+    roller = node.readings.speed.rolling(len(window), center=True)
 
     return CharArgs(node, classifier, window, roller)
 
