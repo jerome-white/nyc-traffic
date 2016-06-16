@@ -10,6 +10,13 @@ from lib import window
 
 #############################################################################
 
+def mkrange(config, key, inclusive=True):
+    vals = [ int(x) for x in config[key].split(',') ]
+    if inclusive:
+        vals[-1] += 1
+
+    return vals
+
 def f(args):
     (index, nid, (config, )) = args
     log = logger.getlogger()
@@ -32,19 +39,24 @@ def f(args):
 engine = ProcessingEngine('prediction')
 log = logger.getlogger()
 
-for outer in range(1, 11):
-    additional = { 'observation': outer }
-    for inner in range(1, 11):
-        additional['prediction'] = inner
+windows = engine.config['window']
+keys = [ 'observation', 'prediction' ]
+(observation_, prediction_) = [ mkrange(windows, x) for x in keys ]
+
+for observation in range(*observation_):
+    for i in [ 'observation', 'target' ]:
+        windows[i] = observation
         
-        for (i, j) in zip(win.names, [ outer, inner, outer ]):
-            engine.config['window'][i] = j
+    for prediction in range(*prediction_):
+        windows['prediction'] = prediction
         log.info(engine.config['window'])
 
         for (nid, df) in engine.run(f, ngen.SequentialGenerator()):
-            additional['node'] = nid
-            for (i, j) in additional.items():
-                df[i] = j
-                
+            # add in columns pertaining to node, observation and prediction
+            df['node'] = nid
+            for i in keys:
+                df[i] = windows[i]
+
+            # write DataFrame to database
             with db.DatabaseConnection() as connection:
-                results.to_sql('occurrence', connection, index_label='as_of')
+                df.to_sql('occurrence', connection, index_label='as_of')
