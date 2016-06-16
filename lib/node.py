@@ -35,7 +35,7 @@ def get_neighbors(nid, connection, spatial=True):
             'WHERE {1}INTERSECTS(source.segment, target.segment)',
             'AND source.id = {0} AND target.id <> {0} {2}',
             ]
-    sql = db.process(sql, [ fmt[x] for x in ('nid', 'geo', 'order') ])
+    sql = db.process(sql, *[ fmt[x] for x in ('nid', 'geo', 'order') ])
     
     with db.DatabaseCursor(connection) as cursor:
         cursor.execute(sql)
@@ -66,7 +66,7 @@ class Node:
                             'FROM reading',
                             'WHERE id = {0}',
                             ]
-                    sql = db.process(sql, [ self.nid ])
+                    sql = db.process(sql, self.nid)
                     
                     cursor.execute(sql)
                     if cursor.rowcount == 1:
@@ -94,7 +94,7 @@ class Node:
                 'FROM operational',
                 'WHERE id = {0}',
                 ]
-        sql = db.process(sql, [ self.nid ])
+        sql = db.process(sql, self.nid)
         
         with db.DatabaseCursor(connection) as cursor:
             cursor.execute(sql)
@@ -120,7 +120,7 @@ class Node:
             
         sql.append('ORDER BY as_of ASC')
         
-        sql = db.process(sql, [ self.nid, constant.minute ])
+        sql = db.process(sql, self.nid, constant.minute)
         
         data = pd.read_sql_query(sql, con=connection, index_col='as_of')
         data.columns = [ 'speed', 'travel' ]

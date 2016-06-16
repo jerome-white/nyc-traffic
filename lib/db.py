@@ -43,9 +43,9 @@ def mark():
             
             return row['mark']
 
-def process(sql, args=None):
+def process(sql, *args):
     s = ' '.join(sql)
-    
+
     return s.format(*args) if args else s
 
 #
