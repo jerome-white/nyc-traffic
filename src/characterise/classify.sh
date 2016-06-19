@@ -1,21 +1,24 @@
 #!/bin/bash
 
-if [ $# -eq 0 ]; then
-    exit 1
-fi
+ini=`mktemp`
+fname=`basename $0 .sh`
+out=$NYCTRAFFICLOG/characterise/$fname
+classify=$NYCTRAFFIC/src/characterise/$fname
 
-ini=$NYCTRAFFICLOG/characterise/$1
-rm --recursive --force $ini
-mkdir --parents $ini
+cat $NYCTRAFFIC/etc/opts/prediction.ini > $ini
+cat <<EOF >> $ini
+[window]
+observation = 1,10
+prediction = 1,10
 
-python3 $NYCTRAFFIC/src/prediction/mkconfigs.py \
-    --reporting-threshold 120 \
-    --output-directory $ini \
-    --skeleton $NYCTRAFFIC/etc/opts/prediction.ini \
-    --parallel \
-    --quiet
+[parameters]
+intra-reporting = 120
+acceleration = -0.002
 
-for i in $ini/*; do
-    echo $i
-    python3 $NYCTRAFFIC/src/characterise/$1.py --config $i || break
-done
+[output]
+root = $out
+EOF
+
+rm --recursive --force $out/*
+python3 $classify.py --config $ini &> $classify.out
+rm $ini
