@@ -1,10 +1,6 @@
+import itertools
+
 import pandas as pd
-import rollingtools as rt
-
-from lib import ngen
-from lib import logger
-
-#############################################################################
 
 def slide(drange):
     for i in itertools.count():
@@ -16,9 +12,12 @@ class Intensity:
         self.prediction = prediction
         self.classifier = classifier
 
+    def incomplete(self, data):
+        return data.isnull().values.any()
+        
     def duration(self, left, right):
         observation = self.readings[left]
-        if observation.isnull().values.any():
+        if self.incomplete(observation):
             raise ValueError()
 
         extended = self._duration(observation, right)
@@ -35,12 +34,12 @@ class Intensity:
 
 class SlidingWindow(Intensity):
     def _duration(self, observation, right):
-        lmean = left.mean()
+        lmean = observation.mean()
         
         for i in slide(right):
             index = right.union(i)
             r = self.readings[index]
-            if r.isnull().values.any():
+            if self.incomplete(r):
                 break
             rmean = r.mean() # XXX weighted average?
             
@@ -55,39 +54,11 @@ class StandardDeviation(Intensity):
         self.deviations = deviations
         
     def _duration(self, observation, right):
-        e = observation.std()
+        epsilon = observation.std()
         
         for i in slide(right):
             r = self.readings[i]
-            if r.isnull().values.any() or abs(r.mean() - e) > self.deviations:
+            if self.incomplete(r) or abs(r.mean() - epsilon) > self.deviations:
                 break
 
         return i
-    
-def f(args):
-    (index, nid, (config, )) = args
-    
-    args = rt.mkargs(config)
-    intensity = StandardDeviation(args.node.readings.speed,
-                                  args.window.prediction,
-                                  args.classifier)
-    df = pd.Series()
-    
-    log = logger.getlogger()
-    log.info('{0} +'.format(nid))
-    for (left, right) in args.node.range(window):
-        try:
-            duration = intensity.duration(left, right)
-            df.set_value(right[0], duration)
-        except ValueError:
-            pass
-    log.info('{0} -'.format(nid))
-    
-    return (nid, df)
-
-#############################################################################
-
-engine = ProcessingEngine('prediction')
-results = engine.run(f, ngen.SequentialGenerator())
-panel = pd.Panel(dict(results))
-engine.dump(panel)
