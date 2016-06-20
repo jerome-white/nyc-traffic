@@ -1,0 +1,4 @@
+prefix,dest,type,default,action,choices
+frequency,freqs,,,append,
+input-directory,source,,,,
+output-directory,target,,,,
