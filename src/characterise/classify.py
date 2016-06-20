@@ -28,7 +28,7 @@ def f(args):
 
 #############################################################################
 
-engine = eng.ProcessingEngine('prediction')
+engine = eng.ProcessingEngine('prediction', init_db=True)
 log = logger.getlogger()
 
 root = Path(engine.config['output']['root'])
