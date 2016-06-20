@@ -22,7 +22,7 @@ def mkargs(source, target, frequencies):
                 if prediction.is_dir():
                     subdir = Path(observation.stem, prediction.stem)
                     
-                    title = zip(heading, map(int, subdir))
+                    title = zip(heading, map(int, subdir.parts))
                     title = ' '.join([ ': '.join(map(str, x)) for x in title ])
                     
                     dest = target.joinpath(subdir)
@@ -35,10 +35,13 @@ def boxplot(**kwargs):
     sns.stripplot(jitter=True, size=3, color='.3', linewidth=0, **kwargs)
 
 def factorplot(**kwargs):
-    sns.factorplot(kind='bar', **kwargs)
+    sns.factorplot(aspect=2, **kwargs)
 
-def plot(source, target, frequencies, title):
-    logger.getlogger().info(str(source))
+def plot(args):
+    (source, target, frequencies, title) = args
+
+    log = logger.getlogger()
+    log.info('o: {0} p: {1}'.format(*map(int, source.parts[-2:])))
     
     data = [ pd.read_pickle(str(x)) for x in source.glob('*.pkl') ]
     df = pd.concat(data, axis=1)
@@ -47,11 +50,12 @@ def plot(source, target, frequencies, title):
     kwargs = { 'x': columns[0], 'y': columns[-1] }
     
     for freq in map(lambda x: str(x) + 'H', frequencies):
-        df = df.resample(freq).sum()
-    
-        grouped = df.groupby(lambda x: x.hour).mean()
+        log.info(freq)
+        
+        df_ = df.resample(freq).sum()
+        grouped = df_.groupby(lambda x: x.hour).mean()
         grouped = grouped.stack(level=0).reset_index()
-        grouped.columns = [ 'Hour', 'Segment', 'Average number of jams' ]
+        grouped.columns = columns
 
         # grouped.replace(to_replace={grouped.columns[0]: {
         #     0: '00:00-03:59',
@@ -64,7 +68,7 @@ def plot(source, target, frequencies, title):
 
         kwargs['data'] = grouped
         for f in [ boxplot, factorplot ]:
-            f(args)
+            f(**kwargs)
             sns.despine(trim=True)
 
             fname = f.__name__ + '-' + freq
@@ -78,5 +82,8 @@ args = cli.CommandLine(cli.optsfile('characterisation-plot')).args
 source = Path(args.source)
 target = Path(args.target)
 
+logger.getlogger(True)
+
 with Pool(cpu_count() // 2, maxtasksperchild=1) as pool:
-    pool.starmap(plot, mkargs(source, target, args.freqs))
+    for _ in pool.imap_unordered(plot, mkargs(source, target, args.freqs)):
+        pass
