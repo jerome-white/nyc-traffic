@@ -1,10 +1,14 @@
+import intensity
+
+import numpy as np
 import pandas as pd
 
 from lib import ngen
 from lib import logger
+from pathlib import Path
+
 from lib import engine as eng
 from lib import rollingtools as rt
-from pathlib import Path
 
 #############################################################################
 
@@ -15,27 +19,50 @@ def mkrange(config, key, inclusive=True):
 
     return vals
 
+def frequency(args):
+    return args.roller.apply(rt.apply, args=[ args.window, args.classifier ])
+
+def duration(args):
+    i = intensity.StandardDeviation(args.node.readings.speed,
+                                    args.window.prediction,
+                                    args.classifier)
+    df = pd.Series()
+    for (left, right) in args.node.range(args.window):
+        try:
+            duration = i.duration(left, right)
+        except ValueError:
+            duration = np.nan
+        df.set_value(right[0], duration)
+    
+    return df
+
 def f(args):
     (index, nid, (config, )) = args
-    log = logger.getlogger()
-    log.info('+ {0}'.format(nid))
+    logger.getlogger().info('+ {0}'.format(nid))
 
-    args = rt.mkargs(nid, config)
-    df = args.roller.apply(rt.apply, args=[ args.window, args.classifier ])
+    g = activity_[config['parameters']['activity']]
+    df = g(rt.mkargs(nid, config))
     df.rename(nid, inplace=True)
 
-    return (nid, df)
+    return df
 
 #############################################################################
 
-engine = eng.ProcessingEngine('prediction', init_db=True)
-log = logger.getlogger()
+activity_ = {
+    'classify': frequency,
+    'intensity': duration,
+    }
 
-root = Path(engine.config['output']['root'])
+engine = eng.ProcessingEngine('prediction', init_db=True)
+assert(engine.config['parameters']['activity'] in activity_)
+
+destination = Path(engine.config['output']['destination'])
 
 windows = engine.config['window']
 keys = [ 'observation', 'prediction' ]
 (observation, prediction) = [ mkrange(windows, x) for x in keys ]
+
+log = logger.getlogger(True)
 
 for o in range(*observation):
     for i in [ 'observation', 'target' ]:
@@ -45,7 +72,7 @@ for o in range(*observation):
         log.info('o: {0} p: {1}'.format(o, p))
         
         windows['prediction'] = '{0:02d}'.format(p)
-        path = Path(root, windows['observation'], windows['prediction'])
+        path = Path(destination, windows['observation'], windows['prediction'])
         path.mkdir(parents=True, exist_ok=True)
         
         for (nid, df) in engine.run(f, ngen.SequentialGenerator()):

@@ -1,9 +1,15 @@
 #!/bin/bash
 
+while getopts "p:" OPTION; do
+    case $OPTION in
+        p) program=$OPTARG ;;
+        *) exit 1 ;;
+    esac
+done
+
 ini=`mktemp`
-fname=`basename $0 .sh`
-out=$NYCTRAFFICLOG/characterise/$fname
-classify=$NYCTRAFFIC/src/characterise/$fname
+bin=$NYCTRAFFIC/src/characterise
+out=$NYCTRAFFICLOG/characterise/$program/data
 
 cat $NYCTRAFFIC/etc/opts/prediction.ini > $ini
 cat <<EOF >> $ini
@@ -14,11 +20,12 @@ prediction = 1,10
 [parameters]
 intra-reporting = 120
 acceleration = -0.002
+activity = $program
 
 [output]
-root = $out
+destination = $out
 EOF
 
 rm --recursive --force $out/*
-python3 $classify.py --config $ini &> $classify.out
+python3 $bin/classify.py --config $ini &> $bin/$program.out
 rm $ini
