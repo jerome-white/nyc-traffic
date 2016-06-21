@@ -1,10 +1,7 @@
 import itertools
 
+import numpy as np
 import pandas as pd
-
-def slide(drange):
-    for i in itertools.count():
-        yield drange + i
 
 class Intensity:
     def __init__(self, readings, prediction, classifier):
@@ -16,37 +13,57 @@ class Intensity:
         return data.isnull().values.any()
         
     def duration(self, left, right):
-        observation = self.readings[left]
-        if self.incomplete(observation):
-            raise ValueError()
+        # readings should be complete
+        readings = [ self.readings[x] for x in (right, left) ]
+        if [ self.incomplete(x) for x in readings ].any():
+            return np.nan
 
-        extended = self._duration(observation, right)
-        if extended.identical(right):
-            raise ValueError()
-        
-        assert(extended.freq == right.freq)
-        rng = pd.date_range(right[0], extended[-1], freq=right.freq)
-        
-        return len(rng)
+        return self._duration(readings.pop(), right)
 
+    def slide(self, drange):
+        stop = len(drange.union(self.readings.index)) - len(drange)
+        assert(stop > 0)
+        
+        yield from map(lambda x: drange + x, range(stop + 1))
+        
     def _duration(self, observation, right):
         raise NotImplementedError
 
-class SlidingWindow(Intensity):
+class IncreasingWindow(Intensity):
     def _duration(self, observation, right):
         lmean = observation.mean()
-        
-        for i in slide(right):
-            index = right.union(i)
+
+        for i in range(len(right)):
+            index = right[:i + 1]
             r = self.readings[index]
             if self.incomplete(r):
                 break
-            rmean = r.mean() # XXX weighted average?
             
+            rmean = r.mean() # XXX weighted average?
             if not self.classifier.classify(self.prediction, lmean, rmean):
                 break
 
         return i
+    
+class SlidingWindow(Intensity):
+    def __init__(self, readings, prediction, classifier, inclusive=True):
+        super().__init__(readings, prediction, classifier)
+        self.inclusive = inclusive
+        
+    def _duration(self, observation, right):
+        lmean = observation.mean()
+        
+        for i in self.slide(right):
+            index = right.union(i) if self.inclusive else i
+            r = self.readings[index]
+            if self.incomplete(r):
+                break
+            
+            rmean = r.mean() # XXX weighted average?
+            if not self.classifier.classify(self.prediction, lmean, rmean):
+                break
+
+        return len(right.union(i[:-1]))
 
 class StandardDeviation(Intensity):
     def __init__(self, readings, prediction, classifier, deviations=1):
@@ -56,9 +73,9 @@ class StandardDeviation(Intensity):
     def _duration(self, observation, right):
         epsilon = observation.std()
         
-        for i in slide(right):
+        for i in self.slide(right):
             r = self.readings[i]
             if self.incomplete(r) or abs(r.mean() - epsilon) > self.deviations:
                 break
 
-        return i
+        return len(right.union(i[:-1]))
