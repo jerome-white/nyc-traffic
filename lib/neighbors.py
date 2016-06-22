@@ -35,7 +35,7 @@ class SpatialNeighbors(NeighborStrategy):
                 ]
         params = [ self.fmt[x] for x in ('nid', 'geo', 'order') ]
         
-        return db.process(sql, params)
+        return db.process(sql, *params)
 
 class STNeighbors(SpatialNeighbors):
     def __init__(self, connection=None):
@@ -66,4 +66,4 @@ class StaticNeighbors(NeighborStrategy):
                 'WHERE n.{2} = {0} AND o.id IS NOT NULL',
                 ]
 
-        return db.process(sql, [ nid ] + self.columns)
+        return db.process(sql, nid, *self.columns)

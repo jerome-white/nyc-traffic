@@ -8,7 +8,7 @@ sql = [
     'DELETE FROM reading',
     "WHERE as_of < '{0}'",
 ]
-sql = db.process(sql, [ '2014-11-07' ])
+sql = db.process(sql, '2014-11-07')
 
 db.EstablishCredentials(user='social')
 with db.DatabaseConnection() as connection:

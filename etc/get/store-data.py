@@ -29,7 +29,7 @@ sql = [
     'INSERT IGNORE INTO reading ({0})',
     'VALUES ({1})'
 ]
-sql = db.process(sql, opts)
+sql = db.process(sql, *opts)
 
 db.EstablishCredentials(user='social')
 with db.DatabaseConnection() as connection:

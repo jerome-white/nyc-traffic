@@ -72,5 +72,5 @@ def genop(frequency=0, table='operational'):
     with DatabaseConnection() as connection:
         with DatabaseCursor(connection) as cursor:
             for i in sql:
-                statement = process(i, [ table ])
+                statement = process(i, table)
                 cursor.execute(statement)
