@@ -1,5 +1,3 @@
-import intensity
-
 import numpy as np
 import pandas as pd
 
@@ -9,30 +7,31 @@ from pathlib import Path
 
 from lib import engine as eng
 from lib import rollingtools as rt
+from intensity import IncreasingWindow as Intensity
 
 #############################################################################
 
 def mkrange(config, key, inclusive=True):
     vals = [ int(x) for x in config[key].split(',') ]
-    if inclusive:
-        vals[-1] += 1
-
-    return vals
-
+    if len(vals) > 1:
+        if inclusive:
+            vals[-1] += 1
+        return range(*vals)
+    else:
+        return vals
+    
 def frequency(args):
     return args.roller.apply(rt.apply, args=[ args.window, args.classifier ])
 
 def duration(args):
-    i = intensity.StandardDeviation(args.node.readings.speed,
-                                    args.window.prediction,
-                                    args.classifier)
     df = pd.Series()
+    intensity = Intensity(args.node.readings.speed, args.classifier)
+
     for (left, right) in args.node.range(args.window):
-        try:
-            duration = i.duration(left, right)
-        except ValueError:
-            duration = np.nan
-        df.set_value(right[0], duration)
+        if left[0].is_month_start and not left[0].hour and not left[0].minute:
+            log = logger.getlogger()
+            log.info('{0}: {1} {2}'.format(repr(args.node), left[0], right[0]))
+        df.set_value(right.min(), intensity.duration(left, right))
     
     return df
 
@@ -44,7 +43,7 @@ def f(args):
     df = g(rt.mkargs(nid, config))
     df.rename(nid, inplace=True)
 
-    return df
+    return (nid, df)
 
 #############################################################################
 
@@ -64,11 +63,11 @@ keys = [ 'observation', 'prediction' ]
 
 log = logger.getlogger(True)
 
-for o in range(*observation):
+for o in observation:
     for i in [ 'observation', 'target' ]:
         windows[i] = '{0:02d}'.format(o)
 
-    for p in range(*prediction):
+    for p in prediction:
         log.info('o: {0} p: {1}'.format(o, p))
         
         windows['prediction'] = '{0:02d}'.format(p)
