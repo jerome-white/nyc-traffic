@@ -26,9 +26,10 @@ def apply(df, window, classifier):
 
     segments = (df[:window.observation], df[-window.target:])
     left_right = []
+    
     for i in segments:
         if np.isnan(np.sum(i)):
-            return np.NaN
+            return np.nan
         left_right.append(i.mean())
 
-    return classifier.classify(window.prediction, *left_right)
+    return classifier.classify(window.prediction + 1, *left_right)
