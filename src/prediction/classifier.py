@@ -90,14 +90,13 @@ class Classifier(machine.Machine):
             nans = series.isnull().values.sum()
             if nans > 0:
                 msg = '{0}: Incomplete interval: {1}-{2} {3} of {4}'
-                err = msg.format(node, i[0], i[-1], nans, len(i))
+                err = msg.format(node, i.min(), i.max(), nans, len(i))
                 raise ValueError(err)
             means.append(series.mean())
         (l, r) = means
 
-        gap = right[0] - left[-1]
-        duration = (gap.total_seconds() / constant.minute) - 1
-        assert(int(duration) == int(self.config['window']['prediction']))
+        gap = right.min() - left.max()
+        duration = gap.total_seconds() / constant.minute
         
         label = self.jam_classifier.classify(duration, l, r)
         
