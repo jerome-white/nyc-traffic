@@ -1,31 +1,32 @@
 #!/bin/bash
 
-while getopts "p:" OPTION; do
+while getopts "a:" OPTION; do
     case $OPTION in
-        p) program=$OPTARG ;;
+        a) activity=$OPTARG ;;
         *) exit 1 ;;
     esac
 done
 
-ini=`mktemp`
 bin=$NYCTRAFFIC/src/characterise
-out=$NYCTRAFFICLOG/characterise/$program/data
+log=$NYCTRAFFICLOG/characterise/$activity
 
-cat $NYCTRAFFIC/etc/opts/prediction.ini > $ini
+dat=$log/data
+ini=$log/ini
+
+cp $NYCTRAFFIC/etc/opts/prediction.ini $ini
 cat <<EOF >> $ini
 [window]
 observation = 1,10
-prediction = 1,10
+prediction = 0,10
 
 [parameters]
-intra-reporting = 120
+intra-reporting = 75
 acceleration = -0.002
-activity = $program
+activity = $activity
 
 [output]
-destination = $out
+destination = $dat
 EOF
 
-rm --recursive --force $out/*
-python3 $bin/classify.py --config $ini &> $bin/$program.out
-rm $ini
+rm --recursive --force $dat
+python3 $bin/classify.py --config $ini &> $bin/$activity.out
