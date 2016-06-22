@@ -1,4 +1,6 @@
-ames = [ 'observation', 'prediction', 'target' ]
+import itertools
+
+names = [ 'observation', 'prediction', 'target' ]
         
 class Window:
     def __init__(self, observation, prediction, target):
@@ -39,3 +41,24 @@ def from_config(config):
     
     return Window(*[ int(config['window'][x]) for x in w ])
     
+def idx_range(index, end=None, size=1):
+    '''
+    Given a starting index, builds windows over that index of a given
+    size, stopping
+    '''
+    
+    if end is None:
+        end = index.max()
+        
+    for i in map(lambda x: index.min() + x, itertools.count()):
+        drange = pd.date_range(i, periods=size, freq=index.freq)
+        if drange.max() > end:
+            raise StopIteration
+        
+        yield drange
+
+def idx_range_parallel(index, window):
+    extended = index + window.observation + window.prediction
+    
+    yield from zip(idx_range(index, size=window.observation),
+                   idx_range(extended, index.max(), window.target))
