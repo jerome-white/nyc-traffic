@@ -17,7 +17,7 @@ def mkargs(top_level, freq):
                 if j.is_dir():
                     yield (j, freq)
 
-def accumulate(args):
+def acc(args):
     (path, freq) = args
     (observation, prediction) = [ int(x) for x in path.parts[-2:] ]
 
@@ -27,7 +27,7 @@ def accumulate(args):
     df = pd.concat(data, axis=1)
     df = df.resample(freq).sum().mean()
 
-    return (observation, prediction, df.mean())
+    return (observation, prediction, df)
 
 args = cli.CommandLine(cli.optsfile('characterisation-plot')).args
 top_level = Path(args.source)
@@ -36,24 +36,45 @@ target.mkdir(parents=True, exist_ok=True)
 
 freqs = args.freqs if args.freqs else [ 'D' ] # XXX defaults?
 
+xlabel = 'Prediction window (minutes)' 
+
 log = logger.getlogger(True)
 
 for fq in freqs:
     log.info('collect {0}'.format(fq))
 
-    df = pd.DataFrame()
-    df.index.name = 'Adjacent windows (minutes)' # observation
-    df.columns.name = 'Prediction window (minutes)' # prediction
     with Pool(cpu_count() // 2, maxtasksperchild=1) as pool:
-        for i in pool.imap_unordered(accumulate, mkargs(top_level, fq)):
-            df.set_value(*i)
-    df = df.ix[df.index.sort_values(),
-               df.columns.sort_values(ascending=False)].T
+        f = pool.imap_unordered
+        d = { tuple(i): j.values for (*i, j) in f(acc, mkargs(top_level, fq)) }
+    names = [ 'observation', 'prediction' ]
+    index = pd.MultiIndex.from_tuples(d.keys(), names=names)
+    data = pd.DataFrame(list(d.values()), index=index).sort_index()
+        
+    log.info('visualize: mean')
 
-    log.info('visualize')
-
+    df = data.mean(axis=1).unstack('observation')
+    df = df.ix[df.index.sort_values(ascending=False)]
     sns.heatmap(df, annot=True, fmt='.0f')
-
+    ax = plt.gca()
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel('Prediction window (minutes)')
     fname = 'frequency-' + fq
     dest = target.joinpath(fname).with_suffix('.png')
     plt.savefig(str(dest))
+    plt.close()
+
+    log.info('visualize: variance')    
+
+    df = data.std(axis=1)
+    df.name = 'deviation'
+    df = df.reset_index()
+    kwargs = { 'x': 'observation', 'y': 'deviation', 'data': df }
+    sns.boxplot(palette="PRGn", whis=np.inf, **kwargs)
+    sns.stripplot(jitter=True, size=3, color='.3', linewidth=0, **kwargs)
+    ax = plt.gca()
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel('Prediction window std. dev. (jams/day)')
+    fname = 'variance-' + fq
+    dest = target.joinpath(fname).with_suffix('.png')
+    plt.savefig(str(dest))
+    plt.close()
