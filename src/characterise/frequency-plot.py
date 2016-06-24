@@ -36,8 +36,8 @@ target.mkdir(parents=True, exist_ok=True)
 
 freqs = args.freqs if args.freqs else [ 'D' ] # XXX defaults?
 
-xlabel = 'Prediction window (minutes)' 
-
+xlabel = 'Adjacent windows (minutes)'
+names = [ 'observation', 'prediction' ]
 log = logger.getlogger(True)
 
 for fq in freqs:
@@ -46,7 +46,6 @@ for fq in freqs:
     with Pool(cpu_count() // 2, maxtasksperchild=1) as pool:
         f = pool.imap_unordered
         d = { tuple(i): j.values for (*i, j) in f(acc, mkargs(top_level, fq)) }
-    names = [ 'observation', 'prediction' ]
     index = pd.MultiIndex.from_tuples(d.keys(), names=names)
     data = pd.DataFrame(list(d.values()), index=index).sort_index()
         
