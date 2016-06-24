@@ -21,7 +21,7 @@ Python packages:
 * pymysql
 * scipy
 * seaborn
-* sklearn
+* scikit-learn
 * statsmodels
 
 There is also a reliance on MySQL (version 5+ is sufficient; version
