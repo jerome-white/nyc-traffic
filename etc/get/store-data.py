@@ -1,5 +1,7 @@
 import pickle
 
+import pandas as pd
+
 from lib import db
 from lib import cli
 
@@ -11,28 +13,24 @@ args = cargs.args
 #
 with open(args.input, mode='rb') as fp:
     data = pickle.load(fp)
-    
-keys = []
-values = []
-for i in data:
-    if not keys:
-        keys = i.keys()
-    values.append([ i[x] for x in keys ])
-assert(keys and values)
+df = pd.DataFrame.from_records(data)
+assert(len(df) > 0)
+records = df.to_records(index=False)
 
 #
-# Create the SQL statement and execute!
+# Create the SQL statement
 #
-s = [ '%s' ] * len(keys)
-opts = [ ','.join(x) for x in (keys, s) ]
+cols = df.columns.values
+opts = [ ','.join(x) for x in ( cols, [ '%s' ] * len(cols) )]
 sql = [
     'INSERT IGNORE INTO reading ({0})',
     'VALUES ({1})'
 ]
-sql = db.process(sql, *opts)
 
+#
+# Add to the database!
+#
 db.EstablishCredentials(user='social')
 with db.DatabaseConnection() as connection:
     with db.DatabaseCursor(connection) as cursor:
-        # http://stackoverflow.com/a/18245311
-        cursor.executemany(sql, values)
+        cursor.executemany(db.process(sql, *opts), records.tolist())
