@@ -27,10 +27,13 @@ fi
 
 d=( `getdirs $DATA/nyc` )
 for i in ${d[@]:1}; do
+    unset err
     for j in $i/*; do
-	python3 $NYCTRAFFIC/etc/get/store-data.py --input $j
+	python3 $NYCTRAFFIC/etc/get/store-data.py --input $j || err=1
     done
-    ( archive $i )
+    if [ ! $err ]; then
+	( archive $i )
+    fi
 done
 python3 $NYCTRAFFIC/etc/get/purge-old.py
 
