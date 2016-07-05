@@ -8,17 +8,21 @@ from lib import cli
 cargs = cli.CommandLine(cli.optsfile('storage'))
 args = cargs.args
 
-columns = [ 'Id': 'id', 'Speed': 'speed', 'TravelTime':  ]
+index_col = 'DataAsOf'
+columns = { index_col: 'as_of',
+            'Id': 'node',
+            'Speed': 'speed',
+            'TravelTime': 'travel_time',
+            }
 
 #
 # Open and parse the data file
 #
-df = pd.DataFrame.from_csv(args.input, sep='\t', index_col=[ 'DataAsOf' ])
-assert(len(df) > 0)
+df = pd.read_csv(args.input, sep='\t', index_col=index_col, parse_dates=True)
+df = df.rename(index=str).reset_index().rename(columns=columns)
 
-df.index.name = 'as_of'
-df = df.ix[df.index.max()]
-df = df[columns]
+df = df[list(columns.values())]
+records = df.to_records(index=False)
 
 #
 # Create the SQL statement
@@ -29,6 +33,7 @@ sql = [
     'INSERT IGNORE INTO reading ({0})',
     'VALUES ({1})'
 ]
+sql = db.process(sql, *opts)
 
 #
 # Add to the database!
@@ -36,4 +41,4 @@ sql = [
 db.EstablishCredentials(user='social')
 with db.DatabaseConnection() as connection:
     with db.DatabaseCursor(connection) as cursor:
-        cursor.executemany(db.process(sql, *opts), records.tolist())
+        cursor.executemany(sql, records.tolist())
