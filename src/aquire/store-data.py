@@ -8,14 +8,17 @@ from lib import cli
 cargs = cli.CommandLine(cli.optsfile('storage'))
 args = cargs.args
 
+columns = [ 'Id': 'id', 'Speed': 'speed', 'TravelTime':  ]
+
 #
 # Open and parse the data file
 #
-with open(args.input, mode='rb') as fp:
-    data = pickle.load(fp)
-df = pd.DataFrame.from_records(data)
+df = pd.DataFrame.from_csv(args.input, sep='\t', index_col=[ 'DataAsOf' ])
 assert(len(df) > 0)
-records = df.to_records(index=False)
+
+df.index.name = 'as_of'
+df = df.ix[df.index.max()]
+df = df[columns]
 
 #
 # Create the SQL statement
