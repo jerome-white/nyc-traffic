@@ -1,5 +1,3 @@
-import pickle
-
 import pandas as pd
 
 from lib import db
