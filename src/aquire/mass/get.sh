@@ -30,7 +30,7 @@ esac
 out=$HOME/data/traffic/$src/`date +'%Y-%j/%H'`
 mkdir --parents `dirname $out`
 
-python3 $NYCTRAFFIC/etc/get/get-data.py \
+python3 $NYCTRAFFIC/src/aquire/get-xml.py \
     --table $table \
     --source $src \
     --url $url \
