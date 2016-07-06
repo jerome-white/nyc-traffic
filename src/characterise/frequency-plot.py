@@ -1,34 +1,38 @@
+import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-def pltvar(axis, xy, df, labels, stem):
-    (x, y) = xy
+from lib import cli
+from lib import logger
+from pathlib import Path
+
+def pltvar(data, x, labels, stem):
     (xlabel, ylabel) = labels
-    
-    df = data.std(axis=axis)
-    df.name = 'deviation'
-    df = df.reset_index()
-    
-    kwargs = { 'x': x, 'y': y, 'data': df }
+
+    kwargs = { 'x': x, 'y': 'deviation', 'data': df }
     sns.boxplot(palette="PRGn", whis=np.inf, **kwargs)
     sns.stripplot(jitter=True, size=3, color='.3', linewidth=0, **kwargs)
     
     ax = plt.gca()
     ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    
-    dest = source.joinpath('variance-' + stem).with_suffix('.png')
+    ax.set_ylabel(ylabel + ' window std. dev. (jams/day)')
+
+    fname = '-'.join([ 'variance', x, stem ])
+    dest = source.joinpath(fname).with_suffix('.png')
     plt.savefig(str(dest))
     plt.close()
-
 
 args = cli.CommandLine(cli.optsfile('characterisation-plot')).args
 source = Path(args.source)
 xlabel = 'Adjacent windows (minutes)'
 
-for i in map(str, source.glob('*.pkl')):
-    data = pd.from_pickle(i)
+log = logger.getlogger(True)
+
+for i in source.glob('*.pkl'):
+    log.info(str(i))
+    
+    data = pd.read_pickle(str(i))
     
     log.info('visualize: mean')
 
@@ -44,16 +48,18 @@ for i in map(str, source.glob('*.pkl')):
 
     log.info('visualize: variance')    
 
+    df = data.std(axis=1)
+    df.name = 'deviation'
+    df = df.reset_index()
+    
     kwargs = {
-        'axis': 0,
-        'xy': [ 'deviation', 'observation' ],
-        'labels': [ xlabel, 'Observation window std. dev. (jams/day)' ],
+        'data': df,
+        'x': 'prediction',
+        'labels': [ xlabel, 'Observation' ],
         'stem': i.stem,
         }
     pltvar(**kwargs)
     
-    kwargs['axis'] += 1
-    kwargs['xy'].reverse()
-    kwargs['labels'][1] = 'Prediction window std. dev. (jams/day)'
-
+    kwargs['x'] = 'observation'
+    kwargs['labels'][1] = 'Prediction'
     pltvar(**kwargs)
