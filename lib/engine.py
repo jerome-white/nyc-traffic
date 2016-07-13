@@ -38,8 +38,9 @@ class ProcessingEngine:
         '''
 
         if 'node' in self.config['parameters']:
-            node = int(self.config['parameters']['node'])
-            return f((0, node), self.config)
+            nodes = self.config['parameters']['node'].split(',')
+            for i in enumerate(map(int, nodes)):
+                yield f(i, self.config)
         else:
             with Pool() as pool:
                 g = generator.nodegen
@@ -55,4 +56,3 @@ class ProcessingEngine:
     def store(self, data, table, index='as_of'):
         with db.DatabaseConnection() as connection:
             data.to_sql(table, connection, index_label=index)
-        
