@@ -15,6 +15,7 @@ The following environment variables should be set:
 Programs are a collection of Bash scripts and Python3 files. Required
 Python packages:
 
+* flask
 * matplotlib
 * numpy
 * pandas
