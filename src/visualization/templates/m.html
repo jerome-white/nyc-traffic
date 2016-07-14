@@ -34,16 +34,6 @@
           });
           segmentLine_{{ i.id }}.setMap(map);
 
-          var marker_{{ i.id }}{{ loop.counter }} = new google.maps.Marker({
-            {% set j = i.coordinates|length // 2 %}
-            position: {
-               lat: {{ i.coordinates[j][0] }},
-               lng: {{ i.coordinates[j][1] }}
-            },
-            title: "{{ i.id }}",
-            map: map,
-          });
-          marker_{{ i.id }}{{ loop.counter }}
         {% endfor %}
       }
     </script>
