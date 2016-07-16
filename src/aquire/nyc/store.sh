@@ -1,13 +1,5 @@
 #!/bin/bash
 
-getdirs() {
-    for ii in $1/*; do
-	if [ -d $ii ]; then
-	    echo $ii
-	fi
-    done | sort --reverse
-}
-
 archive() {
     cd `dirname $1`
 
@@ -25,8 +17,9 @@ fi
 # store the new information into the database
 #
 
-d=( `getdirs $DATA/nyc` )
-for i in ${d[@]:1}; do
+for i in `find $DATA/nyc -mindepth 1 -type d | sort | head --lines=-1`; do
+    find $i -size 0 -delete
+
     unset err
     for j in $i/*; do
 	python3 $NYCTRAFFIC/src/aquire/nyc/store.py --input $j || err=1
@@ -60,7 +53,11 @@ chmod 444 $fname
 # Purge old archives and backups
 #
 
-for i in nyc:10 mysql:30; do
+old=(
+    # nyc:10
+    mysql:30
+)
+for i in ${old[@]}; do
     args=( `sed -e's/:/ /g' <<< $i` )
     find $DATA/${args[0]} -name '*.bz' -mtime +${args[1]} -delete
 done
