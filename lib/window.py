@@ -1,12 +1,14 @@
 import itertools
 
+import pandas as pd
+
 names = [ 'observation', 'prediction', 'target' ]
         
 class Window:
-    def __init__(self, observation, prediction, target):
+    def __init__(self, observation, prediction, target=None):
         self.observation = observation
         self.prediction = prediction
-        self.target = target
+        self.target = self.observation if target is None else target
 
         self.__elements = []
 
