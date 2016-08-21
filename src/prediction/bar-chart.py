@@ -18,34 +18,49 @@ Params = collections.namedtuple('Params', ['directory', 'slices'])
 
 d = collections.OrderedDict([
     ('implementation', 'RandomForestClassifier'),
-    ('prediction', 9),
+#    ('prediction', 9),
 ])
 p = Params('2015_11-15_0943.samjam.local', d)
+pivot = [ 'prediction' ]
 
-pivot = 'depth'
-groups = list(p.slices.keys()) + [ pivot, 'node' ]
+# d = collections.OrderedDict([
+#     ('implementation', 'RandomForestClassifier'),
+#     ('target', 8),
+# ])
+# p = Params('2015_11-20_2344.samjam.local', d)
+pivot = [ 'target' ]
+
+pivot.append('depth')
+groups = list(p.slices.keys()) + pivot + [ 'node' ]
 metrics = collections.OrderedDict({
-    'f1_score': 'F$_{1}$',
+    # 'f1_score': 'F$_{1}$',
     'matthews_corrcoef': 'MCC',
 })
 
 path = pathlib.PurePath('log', p.directory)
-
 dat = pathlib.Path(path, 'dat')
-raw = pd.DataFrame.from_csv(str(dat), sep=';', index_col=None)
 
+raw = pd.DataFrame.from_csv(str(dat), sep=';', index_col=None)
 grouped = raw.groupby(groups)[list(metrics.keys())]
 
 df = grouped.agg([ np.mean ])
 for i in p.slices.values():
     df = df.loc[i]
-
 df = df.unstack(level=pivot)
-df.rename(columns=lambda x: metrics[x] if x in metrics else x, inplace=True)
 
-operations = [ df.mean, df.sem ]
-(means, errors) = [ f().unstack(level=0).loc['mean'] for f in operations ]
-fig = means.plot(yerr=errors, kind='bar')
+stats = []
+for i in (df.mean, df.sem):
+    d = i()
+    level = d.index.names.index(pivot[0])
+    d = d.unstack(level=level)
+
+    # level = len(metrics.keys()) + 1
+    d.index = d.index.droplevel([0, 1])
+    stats.append(d)
+(means, errors) = stats
+
+yticks = np.linspace(0, 1, 11)
+fig = means.plot(kind='bar', yerr=errors, ylim=(0,1), yticks=yticks)
 
 fname = 'neighbor-' + '_'.join(map(str, p.slices.values()))
 dat = pathlib.Path(path, 'fig', fname).with_suffix('.' + 'png')
