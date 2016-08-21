@@ -46,7 +46,7 @@ def from_config(config):
 def idx_range(index, end=None, size=1):
     '''
     Given a starting index, builds windows over that index of a given
-    size, stopping
+    size, stopping when the right-most time value is larger than end.
     '''
     
     if end is None:
@@ -55,7 +55,7 @@ def idx_range(index, end=None, size=1):
     for i in map(lambda x: index.min() + x, itertools.count()):
         drange = pd.date_range(i, periods=size, freq=index.freq)
         if drange.max() > end:
-            raise StopIteration
+            break
         
         yield drange
 
