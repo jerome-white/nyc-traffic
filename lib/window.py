@@ -38,6 +38,9 @@ class Window:
     def tail(self):
         return Window(self.target, self.prediction, self.target)
 
+    def slide(self, index):
+        yield from idx_range(index, size=len(self))
+
 def from_config(config):
     w = [ 'observation', 'prediction', 'target' ]
     
