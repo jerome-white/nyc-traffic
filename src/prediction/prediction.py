@@ -69,40 +69,75 @@ class Cluster(list):
         return df
 
 def observe(args):
+    (segment_id, config) = args
+    
     log = logger.getlogger()
     log(args.segment)
+
+    #
+    # Obtain the network...
+    #
+    depth = int(config['neighbors']['depth'])
+    network = Network(config['data']['network'])
+    raw_cluster = list(itertools.islice(network.bfs(args.segment), depth))
+    if len(raw_cluster) != depth + 1:
+        log.error('{0}: {1} {2}'.format(segment_id, len(segments), depth))
+        return
+
+    #
+    # ... convert it to segments
+    #
+    path = Path(config['data']['raw'])
+    segments = []
+    columns = []
+    for (i, j) in enumerate(raw_cluster):
+        for k in j:
+            p = path.joinpath(k).with_suffix('.pkl')
+            df = pd.from_pickle(str(p))
+            if i == 0:
+                rate = df.index.to_series().diff().mean().total_seconds()
+                if rate > float(config['parameters']['intra-reporting']):
+                    log.error('{0}: {1}', segment_id, rate)
+                    return
+            
+            lag = df.travel.mean() * i
+            df = df.shift(round(lag))
+            df.fillna(method='bfill', inplace=True)
+        
+            segments.append(df.speed)
+    cluster = pd.concat(segments)
+    cluster.columns = segment_list
+
+    root = cluster[segment_id]
+    missing = root[root.isnull()].index
+    cluster.interpolate(inplace=True)
     
-    cluster = Cluster()
-    path = Path(args.output, args.segment)
-    network = Network(args.network_directory)
+    #
+    #
+    #
+    observations = []
+    window = win.window_from_config(config)
+    for i in window.slide(cluster.index):
+        label = rt.apply(root[i], window, classifier)
+        if label is np.nan:
+            continue
 
-    for (i, j) in enumerate(islice(network.bfs(args.segment), args.levels)):
-        cluster.extend([ Segment(x) for x in j ])
-        if i == 0:
-            s = cluster[0]
-            if s.rate > args.threshold:
-                break
-            labels = s.jams(args.window, args.classifier)
-            labels.dropna(inplace=True)
+        features = cluster.loc[i].values.ravel().tolist()
+        observations.append(features + [ label ])
 
-        log.info('+ combine')
-        items = cluster.group(cluster.combine(), args.window)
-        df = pd.DataFrame.from_items(items)
-        df.merge(labels, how='right', copy=False)
-        log.info('- combine {0} {1}'.format(len(df), len(df.columns)))
-
-        assert(not df.isnull().any(axis=1).any())
-
-        fname = '{0:05d}-{1:05d}'.format(i, j)
-        p = path.joinpath(fname).with_suffix('.pkl')
-        df.to_pickle(str(p))
+    #
+    #
+    #
+    with open(config['data']['observations']) as fp:
+        writer = csv.writer(fp)
+        writer.writerows(observations)
 
 def predict(args):
     pass
 
 def enum(config):
-    path = Path(config['data']['directory'])
-    yield from map(lambda x: (x, config), path.iterdir('*.pkl'))
+    path = Path(config['data']['raw'])
+    yield from map(lambda x: (int(x.stem), config), path.iterdir('*.pkl')
 
 arguments = ArgumentParser()
 arguments.add_argument('--configuration')
@@ -111,5 +146,6 @@ config = ConfigParser()
 config.read(args.configuration)
 
 with Pool() as pool:
-    for _ in pool.imap_unordered(func, enum(config)):
-        pass
+    for f in [ observe, predict ]:
+        for _ in pool.imap_unordered(f, enum(config)):
+            pass
