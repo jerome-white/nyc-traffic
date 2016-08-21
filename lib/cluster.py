@@ -12,7 +12,24 @@ from lib import neighbors
 _threshold = 0.01
 _maxlags = 5
 
-class Cluster:
+class Cluster(list):
+    def segments(self):
+        yield from itertools.chain.from_iterable(self)
+        
+    # def group(self, df, window):
+    #     for i in win.idx_range(df.index, size=window.observation):
+    #         yield (i.min(), df.loc[i].values.ravel())
+
+    def combine(self, data_dir):
+        df = pd.concat([ pd.from_pickle( for x in self ])
+        df.columns = [ x.sid for x in self ]
+        if interpolate:
+            df.interpolate(inplace=True)
+        
+        return df
+
+
+class Cluster_:
     def __init__(self, nid, connection=None, freq='T'):
         self.nid = nid
 
