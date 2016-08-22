@@ -2,7 +2,32 @@ import itertools
 
 import pandas as pd
 
-names = [ 'observation', 'prediction', 'target' ]
+names_ = [ 'observation', 'prediction', 'target' ]
+
+def window_from_config(config):
+    return Window(*[ int(config['window'][x]) for x in names_ ])
+    
+def idx_range(index, end=None, size=1):
+    '''
+    Given a starting index, builds windows over that index of a given
+    size, stopping when the right-most time value is larger than end.
+    '''
+    
+    if end is None:
+        end = index.max()
+        
+    for i in map(lambda x: index.min() + x, itertools.count()):
+        drange = pd.date_range(i, periods=size, freq=index.freq)
+        if drange.max() > end:
+            break
+        
+        yield drange
+
+def idx_range_parallel(index, window):
+    extended = index + window.observation + window.prediction
+    
+    yield from zip(idx_range(index, size=window.observation),
+                   idx_range(extended, index.max(), window.target))
         
 class Window:
     def __init__(self, observation, prediction, target=None):
@@ -40,30 +65,3 @@ class Window:
 
     def slide(self, index):
         yield from idx_range(index, size=len(self))
-
-def from_config(config):
-    w = [ 'observation', 'prediction', 'target' ]
-    
-    return Window(*[ int(config['window'][x]) for x in w ])
-    
-def idx_range(index, end=None, size=1):
-    '''
-    Given a starting index, builds windows over that index of a given
-    size, stopping when the right-most time value is larger than end.
-    '''
-    
-    if end is None:
-        end = index.max()
-        
-    for i in map(lambda x: index.min() + x, itertools.count()):
-        drange = pd.date_range(i, periods=size, freq=index.freq)
-        if drange.max() > end:
-            break
-        
-        yield drange
-
-def idx_range_parallel(index, window):
-    extended = index + window.observation + window.prediction
-    
-    yield from zip(idx_range(index, size=window.observation),
-                   idx_range(extended, index.max(), window.target))
