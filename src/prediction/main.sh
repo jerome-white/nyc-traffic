@@ -1,7 +1,7 @@
 #!/bin/bash
 
 p_home=$NYCTRAFFIC/src/prediction
-p_log=$NYCTRAFFICLOG/prediction/test
+p_log=$NYCTRAFFICLOG/prediction
 while getopts "r:n:" OPTION; do
     case $OPTION in
         r) readings=$OPTARG ;;
