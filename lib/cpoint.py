@@ -4,6 +4,12 @@ import operator
 import numpy as np
 import scipy.constants as constant
 
+Selector = lambda x: {
+    'percentage': Percentage,
+    'derivative': Derivative,
+    'acceleration': Acceleration,
+}[x]
+
 class ChangePoint:
     def __init__(self, threshold, categories=2):
         self.threshold = threshold
