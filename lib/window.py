@@ -5,7 +5,14 @@ import pandas as pd
 names_ = [ 'observation', 'prediction', 'target' ]
 
 def window_from_config(config):
-    return Window(*[ int(config['window'][x]) for x in names_ ])
+    (*required, optional) = names_
+    wcfg = config['window']
+
+    args = [ int(wcfg[x]) for x in required ]
+    if optional in wfcg:
+        args.append(int(wcfg[optional]))
+
+    return Window(*args)
     
 def idx_range(index, end=None, size=1):
     '''
