@@ -1,122 +1,168 @@
+import csv
+import itertools
+
 import numpy as np
 import pandas as pd
+import lib.window as win
+import lib.rollingtools as rt
 
+from lib import logger
 from pathlib import Path
+from machine import Selector as MachineSelector
 from argparse import ArgumentParser
+from itertools import islice
+from collection import namedtuple
+from lib.cpoint import Selector as ClassifierSelector
+from lib.network import RoadNetwork
+from configparser import ConfigParser
+from lib.features import Selector as FeatureSelector
+from multiprocessing import Pool
 
-class Network(dict):
-    def _bfs(self, roots, trail):
-        outgoing = []
-        for i in filter(lambda x: x in self, roots):
-            for j in filter(lambda x: x not in trail, self[i]):
-                outgoing.append(j)
+Args = namedtuple('Args', 'segment, data, config')
+
+class Writer:
+    def __enter__(self):
+        return self.fp
+
+    def __exit__(self, type, value, tb):
+        self.fp.close()
         
-        if outgoing:
-            yield outgoing
-            yield from self._bfs(outgoing, trail.union(outgoing))
-
-    def bfs(self, root, inclusive=True):
-        roots = [ root ]
-        if inclusive:
-            yield roots
-        yield from self._bfs(roots, set())
+    def __init__(self, directory, segment_id, suffix='csv'):
+        fname = Path(directory, str(segment_id)).with_suffix('.' + suffix)
+        self.fp = open(str(fname), 'w')
 
 class Segment:
-    def __init__(self, sid, freq='T'):
-        df = pd.read_pickle(db.locate(sid))
+    def __init__(self, csv_file, name=None, freq='T'):
+        df = pd.read_csv(str(csv_file),
+                         index_col='as_of',
+                         parse_dates=True,
+                         dtype={ x: np.float64 for x in [ 'speed', 'travel' ]})
         
         self.frequency = df.index.to_series().diff().mean().total_seconds()
-        
         self.df = df.resample(freq).mean()
-        
-        self.speed = self.df.speed
-        self.speed.name = sid
+        self.name = name if name is not None else p.stem
+
+    def lag(self, with_respect_to, multiplier):
+        lag = self.df.travel.mean() * multiplier
+        self.df = self.df.shift(round(lag))
+        self.df.fillna(method='bfill', inplace=True)
 
 class Cluster(list):
-    def group(self, df, window):
-        for i in win.idx_range(df.index, size=window.observation):
-            yield (i.min(), df.loc[i].values.ravel())
-
+    def __init__(self, root):
+        self.append(root)
+        
     def combine(self, interpolate=True):
-        df = pd.concat([ x.df.speed for x in self ])
-        df.columns = [ x.sid for x in self ]
+        reference = self[0].df.index
+        
+        df = pd.concat([ x.df.speed for x in self ], axis=1)
+        df = df.resample(reference.freq).mean()
+        df = df.loc[reference.min():reference.max()]
+        df.columns = [ x.name for x in self ]
+        
         if interpolate:
             df.interpolate(inplace=True)
-        
+            
         return df
 
 def observe(args):
-    (data, config) = args
-    
     log = logger.getlogger()
-    log(data.stem)
+    log.info('observer {0}'.format(args.data.stem))
 
-    root = pd.from_csv(data)
-    rate = root.speed.index.to_series().diff().mean().total_seconds()
-    if rate > float(config['parameters']['intra-reporting']):
-        log.error('{0}: {1}', root.name, rate)
+    segment = Segment(args.data, name=args.segment)
+    if segment.frequency > float(args.config['parameters']['intra-reporting']):
+        msg = '{0}: non operational {1}'
+        log.error(msg.format(segment.name, segment.frequency))
         return
 
     #
     # Obtain the network...
     #
-    depth = int(config['neighbors']['depth'])
-    network = Network(config['data']['network'])
-    raw_cluster = list(itertools.islice(network.bfs(root.name), depth))
-    if len(raw_cluster) != depth + 1:
-        log.error('{0}: {1} {2}'.format(root.name, len(raw_cluster), depth))
+    depth = int(args.config['neighbors']['depth'])
+    network = RoadNetwork(args.config['data']['network'])
+    raw_cluster = list(itertools.islice(network.bfs(segment.name), depth))
+    if len(raw_cluster) != depth:
+        msg = '{0}: network too shallow {1} {2}'
+        log.error(msg.format(segment.name, len(raw_cluster), depth))
         return
 
     #
     # ... convert it to segments
     #
-    path = Path(config['data']['raw'])
-    segments = [ root ]
+    path = Path(args.config['data']['raw'])
+    cluster = Cluster(segment)
     for (i, level) in enumerate(raw_cluster):
         for j in level:
-            p = path.joinpath(j).with_suffix('.csv')
-            df = pd.from_csv(str(p))
-
-            lag = df.travel.mean() * i
-            df = df.shift(round(lag))
-            df.fillna(method='bfill', inplace=True)
-        
-            segments.append(df.speed)
-    cluster = pd.concat(segments)
+            p = path.joinpath(str(j)).with_suffix('.csv')
+            if not p.exists():
+                log.error('No file for {0}'.format(str(p)))
+                continue
+            s = Segment(p, name=j)
+            # s.lag(segment, i)
+            cluster.append(s)
+    df = cluster.combine()
     
     #
     #
     #
-    missing = root[root.isnull()].index
-    cluster.interpolate(inplace=True)
-
+    m = args.config['machine']
+    transform = FeatureSelector(m['feature-transform'])()
+    threshold = float(args.config['parameters']['acceleration'])
+    classifier = ClassifierSelector(m['change-point'])(threshold)
+    
+    window = win.window_from_config(args.config)
     observations = []
-    window = win.window_from_config(config)
-    for i in window.slide(cluster.index):
-        label = rt.apply(root[i], window, classifier)
-        if label is np.nan:
-            continue
-
-        features = cluster.loc[i].values.ravel().tolist()
-        observations.append(features + [ label ])
+    
+    for i in window.slide(df.index):
+        label = rt.apply(segment.df.loc[i].values, window, classifier)
+        if label is not np.nan:
+            features = transform.select(df.loc[i])
+            observations.append(features + [ int(label) ])
 
     #
     #
     #
-    output = Path(config['data']['observations'], segment_id)
-    output = output.with_suffix('.csv')
-    with open(str(output)) as fp:
+    with Writer(args.config['data']['observations'], args.segment) as fp:
         writer = csv.writer(fp)
         writer.writerows(observations)
-
+        
 def predict(args):
-    (data, config) = args
+    log = logger.getlogger()
+    log.info(args.segment)
 
-    observations = np.loadtxt(data, delimiter=',')
+    args = args.config['machine']
+    observations = np.loadtxt(str(args.data), delimiter=',')
+    classifier = MachineSelector(args['model'])(observations)
 
+    predictions = []
+    folds = int(args['folds'])
+    testing = float(args['testing'])
+
+    for (i, data) in enumerate(classifier.stratify(folds, testing)):
+        log.info('fold: {0}'.format(i))
+        
+        for (name, clf) in classifier.machinate(args['method']):
+            try:
+                pred = classifier.train(clf, data)
+            except (AttributeError, ValueError) as error:
+                log.error('{0} {1} {2}'.format(name, data, str(error)))
+                continue
+            classifier.set_probabilities(clf, data.x_test)
+
+            d = dict(classifier.predict(data, pred))
+            d.update({ 'fold': i, 'classifier': name })
+            
+            predictions.append(d)
+
+    with Writer(args.config['data']['results'], args.segment) as fp:
+        writer = csv.DictWriter(fp, predictions[0].keys())
+        writer.writeheader()
+        writer.writerows(predictions)
+        
 def enum(config, key):
     path = Path(config['data'][key])
-    yield from map(lambda x: (x, config), path.iterdir('*.csv'))
+    csv_files = path.glob('*.csv')
+        
+    yield from map(lambda x: Args(int(x.stem), x, config), csv_files)
 
 ############################################################################
 
@@ -126,12 +172,12 @@ args = arguments.parse_args()
 config = ConfigParser()
 config.read(args.configuration)
 
-l = OrderedDict([
-        ('raw', observe),
-        ('observations', predict),
-])
+actions = [
+    ('raw', observe),
+    ('observations', predict),
+]
 
-with Pool() as pool:
-    for (key, f) in l.items():
-        for _ in pool.imap_unordered(f, enum(config, key)):
+with Pool(1) as pool:
+    for (key, func) in filter(lambda x: x[0] in config['data'], actions):
+        for _ in pool.imap_unordered(func, enum(config, key)):
             pass
