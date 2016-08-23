@@ -5,6 +5,8 @@
 import itertools
 import configparser
 
+import numpy as np
+
 from lib import db
 from lib import cli
 from lib import node
@@ -64,11 +66,11 @@ options = {
         # 'var',
         # 'hybrid',
     ],
+    'observation': np.linspace(3, 9, 3, dtype=int),
+    'prediction': np.linspace(3, 9, 3, dtype=int),
+    # 'target': [ str(x) for x in [ 5 ] ],
+    'depth': np.linspace(0, 5, 6, dtype=int),
     'test-train': [],
-    'observation': [ str(x) for x in [ 5 ] ],
-    'prediction': [ str(x) for x in [ 3 ] ],
-    'target': [ str(x) for x in [ 5 ] ],
-    'depth': [ str(x) for x in range(8) ],
 }
 
 testing_sizes = [ 0.2 ]
@@ -81,7 +83,7 @@ for i in map(lambda x: (x, 1 - x), testing_sizes):
 #
 p = 'parameters'
 helper = {
-    'window': window.names_,
+    'window': list(filter(lambda x: x in options, window.names_)),
     'neighbors': [ 'depth', 'selection' ],
 }
 for (i, o) in enumerate(product(options)):
@@ -89,7 +91,7 @@ for (i, o) in enumerate(product(options)):
     (test, train) =  o['test-train'].split(',')
 
     for (title, keys) in helper.items():
-        config[title] = { k: o[k] for k in keys }
+        config[title] = { k: str(o[k]) for k in keys }
         
     config['machine'] = {
         'folds': str(10),
