@@ -1,26 +1,48 @@
+import pandas as pd
+
 from lib import db
 from lib import ngen
 from lib import logger
-from lib.node import Node
 from pathlib import Path
+from argparse import ArgumentParser
+from lib.ngen import SequentialGenerator
+from collections import namedtuple
 from multiprocessing import Pool
 
+Handler = namedtuple('Handler', 'extension, method')
+
 def func(args):
+    (node, output, handler) = args
+    
     log = logger.getlogger()
-    log.info(args)
+    log.info(node)
+
+    sql = [ 'SELECT as_of, speed, travel_time',
+            'FROM reading',
+            'WHERE node = {0}',
+    ]
+    sql = db.process(sql, node)
+    with db.DatabaseConnection() as con:
+        df = pd.read_sql_query(sql, con=con, index_col='as_of')
+
+    path = Path(output, str(node)).with_suffix('.' + handler.extension)
+    archive = getattr(df, handler.method)
+    archive(str(path))
     
-    try:
-        n = Node(args, freq=None)
-        path = Path('/', 'Volumes', 'Untitled', '{0:03d}'.format(args))
-        path = path.with_suffix('.pkl')
-        n.readings.to_pickle(str(path))
-    except AttributeError:
-        pass
+def enum(args):
+    handler = {
+        'csv': Handler('csv', 'to_csv'),
+        'pickle': Handler('pkl', 'to_pickle'),
+    }[args.format]
+    gen = SequentialGenerator('node')
     
-    return args
+    yield from map(lambda x: (x, args.output, handler), gen.getnodes())
+
+arguments = ArgumentParser()
+arguments.add_argument('--output')
+arguments.add_argument('--format')
+args = arguments.parse_args()
 
 with Pool() as pool:
-    log = logger.getlogger(True)
-    iterable = ngen.SequentialGenerator('node')
-    for _ in pool.imap_unordered(func, iterable.getnodes()):
+    for _ in pool.imap_unordered(func, enum(args)):
         pass
