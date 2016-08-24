@@ -24,7 +24,7 @@ class Writer:
     def __enter__(self):
         return self.fp
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, exc_type, exc_value, traceback):
         self.fp.close()
         
     def __init__(self, directory, segment_id, suffix='csv'):
@@ -40,15 +40,16 @@ class Segment:
         
         self.frequency = df.index.to_series().diff().mean().total_seconds()
         self.df = df.resample(freq).mean()
-        self.name = name if name is not None else p.stem
+        self.name = name if name is not None else csv_file.stem
 
-    def lag(self, with_respect_to, multiplier):
-        lag = self.df.travel.mean() * multiplier
-        self.df = self.df.shift(round(lag))
-        self.df.fillna(method='bfill', inplace=True)
+    # def lag(self, with_respect_to, multiplier):
+    #     lag = self.df.travel.mean() * multiplier
+    #     self.df = self.df.shift(round(lag))
+    #     self.df.fillna(method='bfill', inplace=True)
 
 class Cluster(list):
     def __init__(self, root):
+        super().__init__()
         self.append(root)
         
     def combine(self, interpolate=True):
@@ -142,7 +143,8 @@ def predict(args):
         
         for (name, clf) in classifier.machinate(args['method']):
             try:
-                pred = classifier.train(clf, data)
+                clf.fit(data.x_train, data.y_train)
+                pred = clf.predict(data.x_test)
             except (AttributeError, ValueError) as error:
                 log.error('{0} {1} {2}'.format(name, data, str(error)))
                 continue
@@ -161,7 +163,7 @@ def predict(args):
 def enum(config, key):
     path = Path(config['data'][key])
     csv_files = path.glob('*.csv')
-        
+    
     yield from map(lambda x: Args(int(x.stem), x, config), csv_files)
 
 ############################################################################

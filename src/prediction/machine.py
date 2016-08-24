@@ -3,26 +3,16 @@ import sklearn.metrics
 
 import numpy as np
 
-import lib.cpoint as cp
-import lib.aggregator as ag
-import scipy.constants as constant
-
 from lib import logger
-from tempfile import NamedTemporaryFile
 from collections import namedtuple
 from sklearn.metrics.base import UndefinedMetricWarning
 from sklearn.cross_validation import StratifiedShuffleSplit
 
-from sklearn.svm import SVC
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC, SVR
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from sklearn.dummy import DummyClassifier
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.naive_bayes import GaussianNB
-
-from sklearn.svm import SVR
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.naive_bayes import GaussianNB
 
 Data = namedtuple('Data', 'x_train, x_test, y_train, y_test')
@@ -62,11 +52,6 @@ class Machine:
             
             yield (factory.construct.__name__, instance)
 
-    def train(self, clf, data):
-        clf.fit(data.x_train, data.y_train)
-        
-        return clf.predict(data.x_test)
-
     def predict(self, data, pred):
         with warnings.catch_warnings():
             warnings.filterwarnings('error')
@@ -74,6 +59,7 @@ class Machine:
                 try:
                     result = f(data.y_test, pred)
                 except (UndefinedMetricWarning, ValueError) as error:
+                    log = logger.getlogger()                    
                     log.warning(error)
                     result = None
                     
@@ -113,7 +99,8 @@ class Classifier(Machine):
             # this generally happens if a classifier doesn't natively
             # support probability estimates (such as SVMs; set
             # 'probability' to True in this case)
-            self.log.warning(err)
+            log = logger.getlogger()
+            log.warning(err)
         
     def roc(self, y_true, y_pred=None):
         if self.probabilities is None:
