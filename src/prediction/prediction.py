@@ -181,7 +181,7 @@ actions = [
     ('observations', predict),
 ]
 
-with Pool(1) as pool:
+with Pool() as pool:
     for (key, func) in filter(lambda x: x[0] in config['data'], actions):
         for _ in pool.imap_unordered(func, enum(config, key)):
             pass
