@@ -62,6 +62,8 @@ class Cluster(list):
         
         if interpolate:
             df.interpolate(inplace=True)
+            for i in 'bf':
+                df.fillna(method=i+'fill', inplace=True)
             
         return df
 
