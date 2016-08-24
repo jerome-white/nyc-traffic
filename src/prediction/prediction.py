@@ -11,8 +11,8 @@ from pathlib import Path
 from machine import Selector as MachineSelector
 from argparse import ArgumentParser
 from itertools import islice
-from collection import namedtuple
 from lib.cpoint import Selector as ClassifierSelector
+from collections import namedtuple
 from lib.network import RoadNetwork
 from configparser import ConfigParser
 from lib.features import Selector as FeatureSelector
