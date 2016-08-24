@@ -9,7 +9,7 @@ def window_from_config(config):
     wcfg = config['window']
 
     args = [ int(wcfg[x]) for x in required ]
-    if optional in wfcg:
+    if optional in wcfg:
         args.append(int(wcfg[optional]))
 
     return Window(*args)
