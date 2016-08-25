@@ -1,3 +1,4 @@
+import os
 import csv
 import itertools
 
@@ -171,8 +172,10 @@ def enum(config, key):
 ############################################################################
 
 arguments = ArgumentParser()
+arguments.add_argument('--processors')
 arguments.add_argument('--configuration')
 args = arguments.parse_args()
+
 config = ConfigParser()
 config.read(args.configuration)
 
@@ -181,7 +184,11 @@ actions = [
     ('observations', predict),
 ]
 
-with Pool() as pool:
+kwargs = { 'maxtasksperchild': 1 }
+if args.processors:
+    kwargs['processes'] = min(os.cpu_count(), max(1, int(args.processors)))
+
+with Pool(**kwargs) as pool:
     for (key, func) in filter(lambda x: x[0] in config['data'], actions):
         for _ in pool.imap_unordered(func, enum(config, key)):
             pass
