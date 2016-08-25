@@ -1,57 +1,61 @@
 #!/bin/bash
 
+ini=ini-pool
 p_home=$NYCTRAFFIC/src/prediction
 p_log=$NYCTRAFFICLOG/prediction
-while getopts "r:n:" OPTION; do
+while getopts "r:n:b:" OPTION; do
     case $OPTION in
         r) readings=$OPTARG ;;
         n) network=$OPTARG ;;
+        b)
+            if [ -d $OPTARG/$ini ]; then
+                base=$OPTARG
+            fi
+            ;;
         *) exit 1 ;;
     esac
 done
 mkdir --parents $p_log
 
-#
-# Create the output directory
-#
-while true; do
-    base=$p_log/`date +%Y_%m-%d_%H%M`.`hostname`
-    if [ ! -e $base ]; then
-        mkdir --parents $base
-        break
-    fi
-    # sleep until this minute is finished
-    sleep `expr 60 - $(expr $(date +%s) % 60)`
-done
+if [ ! $base ]; then
+    #
+    # Create the output directory
+    #
+    while true; do
+        base=$p_log/`date +%Y_%m-%d_%H%M`.`hostname`
+        if [ ! -e $base ]; then
+            mkdir --parents $base
+            break
+        fi
+        # sleep until this minute is finished
+        sleep `expr 60 - $(expr $(date +%s) % 60)`
+    done
 
-#
-# Begin the run!
-#
-tmp=`mktemp --directory --tmpdir=$base ini.XXX`
-python3 $p_home/mkconfigs.py \
-    --reporting-threshold 120 \
-    --output-directory $tmp
+    #
+    # Create the configuration files
+    #
+    python3 $p_home/mkconfigs.py \
+            --reporting-threshold 90 \
+            --output-directory $base/$ini
+fi
 
 i=0
-configs=( `ls $tmp/*` )
+configs=( `ls $base/$ini/*.ini` )
 for j in ${configs[@]}; do
-    echo "[ `date` : $i / ${#configs[@]} ] $j " >> $base/trace
+    echo "[ `date` : $i / ${#configs[@]} ] $j" >> $base/trace
 
-    d=$base/`basename $j .ini`
-    mkdir --parents $d
-    for k in observations results; do
-        mkdir $d/$k
-    done
-    (cat $j; cat <<EOF) > $d/ini
+    path=$base/`basename $j .ini`
+    rm --recursive --force $path
+    mkdir --parents $path/{observations,results}
+    (cat $j; cat <<EOF) > $path/ini
 [data]
 raw = $readings
 network = $network
-observations = $d/observations
-results = $d/results
+results = $path/results
+observations = $path/observations
 EOF
     
-    python3 $p_home/prediction.py --config $d/ini
-    
+    python3 $p_home/prediction.py --config $path/ini && rm $j
     (( i++ ))
 done
-rm --recursive --force $tmp
+rm --recursive --force $base/$ini
