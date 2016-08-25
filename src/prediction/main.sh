@@ -55,7 +55,12 @@ results = $path/results
 observations = $path/observations
 EOF
     
-    python3 $p_home/prediction.py --config $path/ini && rm $j
+    python3 $p_home/prediction.py --config $path/ini || exit 1
+    rm $j
+    # tar -cjf $path/observations.tar.bz2 -C $path observations
+    tar -cf - -C $path observations | \
+	lzma --compress --best --stdout > $path/observations.tar
+    rm --recursive --force $path/observations
     (( i++ ))
 done
 rm --recursive --force $base/$ini
