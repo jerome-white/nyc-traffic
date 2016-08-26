@@ -39,7 +39,7 @@ if [ ! $base ]; then
             --output-directory $base/$ini
 fi
 
-i=0
+i=1
 configs=( `ls $base/$ini/*.ini` )
 for j in ${configs[@]}; do
     echo "[ `date` : $i / ${#configs[@]} ] $j" >> $base/trace
