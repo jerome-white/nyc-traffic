@@ -1,22 +1,23 @@
 import os
 import csv
+from pathlib import Path
+from argparse import ArgumentParser
+from itertools import islice
+from collections import namedtuple
+from configparser import ConfigParser
+from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
+
 import lib.window as win
 import lib.rollingtools as rt
-
 from lib import logger
-from pathlib import Path
-from machine import Selector as MachineSelector
-from argparse import ArgumentParser
-from itertools import islice
 from lib.cpoint import Selector as ClassifierSelector
-from collections import namedtuple
 from lib.network import RoadNetwork
-from configparser import ConfigParser
 from lib.features import Selector as FeatureSelector
-from multiprocessing import Pool
+
+from machine import Selector as MachineSelector
 
 Args = namedtuple('Args', 'segment, data, root, config')
 
