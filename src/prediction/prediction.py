@@ -21,6 +21,20 @@ from machine import Selector as MachineSelector
 
 Args = namedtuple('Args', 'segment, data, root, config')
 
+class Writer:
+    def __enter__(self):
+        return self.fp
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.fp.close()
+        
+    def __init__(self, directory, subdirectory, segment_id, suffix='csv'):
+        path = Path(directory, subdirectory)
+        path.mkdir(parents=True, exist_ok=True)
+        fname = path.joinpath(str(segment_id)).with_suffix('.' + suffix)
+
+        self.fp = fname.open('w')
+
 class Segment:
     def __init__(self, csv_file, name=None, freq='T'):
         df = pd.read_csv(str(csv_file),
@@ -114,9 +128,7 @@ def observe(args):
     #
     #
     #
-    path = args.root.joinpath('observations', str(args.segment))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.with_suffix('.csv').open('w') as fp:
+    with Writer(args.root, 'observations', args.segment) as fp:
         writer = csv.writer(fp)
         writer.writerows(observations)
         
@@ -151,16 +163,14 @@ def predict(args):
             
             predictions.append(d)
 
-    path = args.root.joinpath('results', str(args.segment))    
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.with_suffix('.csv').open('w') as fp:
+    with Writer(args.root, 'results', args.segment) as fp:
         writer = csv.DictWriter(fp, predictions[0].keys())
         writer.writeheader()
         writer.writerows(predictions)
         
 def enumerator(root, node, total_nodes):
     config = ConfigParser()
-    config.read(str(path))
+    config.read(str(root.joinpath('ini')))
 
     path = Path(config['data']['raw'])
     csv_files = sorted(path.glob('*.csv'))
