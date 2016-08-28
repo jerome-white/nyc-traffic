@@ -171,11 +171,11 @@ def enumerator(root, node, total_nodes):
 ############################################################################
 
 arguments = ArgumentParser()
-arguments.add_argument('--root')
 arguments.add_argument('--node', type=int, default=0)
-arguments.add_argument('--total-nodes', type=int, default=1)
+arguments.add_argument('--top-level')
 arguments.add_argument('--observe', action='store_true')
 arguments.add_argument('--predict', action='store_true')
+arguments.add_argument('--total-nodes', type=int, default=1)
 args = arguments.parse_args()
 
 
@@ -186,7 +186,7 @@ if args.predict:
     actions.append(predict)
 
 with Pool(maxtasksperchild=1) as pool:
-    root = Path(root)
+    root = Path(args.top_level)
     for func in actions:
         iterable = enumerator(root, args.node, args.total_nodes)
         for _ in pool.imap_unordered(func, iterable):
