@@ -4,6 +4,8 @@
 
 import itertools
 import configparser
+from uuid import uuid4
+from pathlib import Path
 from argparse import ArgumentParser
 
 import numpy as np
@@ -110,5 +112,5 @@ for (i, o) in enumerate(product(options)):
             pass
 
     path = path.joinpath('ini')
-    with path.open() as fp:
+    with path.open('w') as fp:
         config.write(fp)
