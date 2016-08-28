@@ -4,15 +4,11 @@
 
 import itertools
 import configparser
+from argparse import ArgumentParser
 
 import numpy as np
 
-from lib import db
-from lib import cli
-from lib import node
 from lib import window
-from argparse import ArgumentParser
-from tempfile import NamedTemporaryFile
 
 # http://stackoverflow.com/a/5228294
 def product(d):
@@ -20,19 +16,11 @@ def product(d):
         yield dict(zip(d, i))
 
 arguments = ArgumentParser()
-arguments.add_argument('--reporting-threshold')
-arguments.add_argument('--output-directory')
 arguments.add_argument('--data')
 arguments.add_argument('--network')
+arguments.add_argument('--top-level')
+arguments.add_argument('--reporting-threshold')
 args = arguments.parse_args()
-
-tmpargs = {
-    'mode': 'w',
-    'delete': False,
-    'dir': args.output_directory,
-    'prefix': '', # empty string defaults to 'tmp'
-    'suffix': '.ini',
-}
 
 #
 # Options that can be simultaneous during a single run
@@ -114,7 +102,7 @@ for (i, o) in enumerate(product(options)):
 
     while True:
         (c, _) = str(uuid4()).split('-', 1)
-        path = Path(args.output_directory, c)
+        path = Path(args.top_level, c)
         try:
             path.mkdir(parents=True)
             break
