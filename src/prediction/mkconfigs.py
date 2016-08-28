@@ -22,8 +22,8 @@ def product(d):
 arguments = ArgumentParser()
 arguments.add_argument('--reporting-threshold')
 arguments.add_argument('--output-directory')
-# arguments.add_argument('--parallel')
-arguments.add_argument('--verbose')
+arguments.add_argument('--data')
+arguments.add_argument('--network')
 args = arguments.parse_args()
 
 tmpargs = {
@@ -107,7 +107,20 @@ for (i, o) in enumerate(product(options)):
         'intra-reporting': args.reporting_threshold,
     }
 
-    with NamedTemporaryFile(**tmpargs) as fp:
-        if args.verbose:
-            print(fp.name)
+    config['data'] = {
+        'raw': args.data,
+        'network': args.network,
+    }
+
+    while True:
+        (c, _) = str(uuid4()).split('-', 1)
+        path = Path(args.output_directory, c)
+        try:
+            path.mkdir(parents=True)
+            break
+        except FileExistsError:
+            pass
+
+    path = path.joinpath('ini')
+    with path.open() as fp:
         config.write(fp)

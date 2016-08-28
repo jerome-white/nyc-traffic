@@ -18,18 +18,7 @@ from configparser import ConfigParser
 from lib.features import Selector as FeatureSelector
 from multiprocessing import Pool
 
-Args = namedtuple('Args', 'segment, data, config')
-
-class Writer:
-    def __enter__(self):
-        return self.fp
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.fp.close()
-        
-    def __init__(self, directory, segment_id, suffix='csv'):
-        fname = Path(directory, str(segment_id)).with_suffix('.' + suffix)
-        self.fp = open(str(fname), 'w')
+Args = namedtuple('Args', 'segment, data, root, config')
 
 class Segment:
     def __init__(self, csv_file, name=None, freq='T'):
@@ -69,7 +58,7 @@ class Cluster(list):
 
 def observe(args):
     log = logger.getlogger()
-    log.info('observer {0}'.format(args.data.stem))
+    log.info('observer {0}'.format(args.segment))
 
     segment = Segment(args.data, name=args.segment)
     if segment.frequency > float(args.config['parameters']['intra-reporting']):
@@ -124,7 +113,9 @@ def observe(args):
     #
     #
     #
-    with Writer(args.config['data']['observations'], args.segment) as fp:
+    path = args.root.joinpath('observations', str(args.segment))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.with_suffix('.csv').open('w') as fp:
         writer = csv.writer(fp)
         writer.writerows(observations)
         
@@ -132,18 +123,20 @@ def predict(args):
     log = logger.getlogger()
     log.info(args.segment)
 
-    args = args.config['machine']
-    observations = np.loadtxt(str(args.data), delimiter=',')
-    classifier = MachineSelector(args['model'])(observations)
+    machine_opts = args.config['machine']
+    
+    path = args.root.joinpath('observations', str(args.segment))
+    observations = np.loadtxt(str(path.with_suffix('.csv')), delimiter=',')
+    classifier = MachineSelector(machine_opts['model'])(observations)
 
     predictions = []
-    folds = int(args['folds'])
-    testing = float(args['testing'])
+    folds = int(machine_opts['folds'])
+    testing = float(machine_opts['testing'])
 
     for (i, data) in enumerate(classifier.stratify(folds, testing)):
         log.info('fold: {0}'.format(i))
         
-        for (name, clf) in classifier.machinate(args['method']):
+        for (name, clf) in classifier.machinate(machine_opts['method']):
             try:
                 clf.fit(data.x_train, data.y_train)
                 pred = clf.predict(data.x_test)
@@ -157,36 +150,44 @@ def predict(args):
             
             predictions.append(d)
 
-    with Writer(args.config['data']['results'], args.segment) as fp:
+    path = args.root.joinpath('results', str(args.segment))    
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.with_suffix('.csv').open('w') as fp:
         writer = csv.DictWriter(fp, predictions[0].keys())
         writer.writeheader()
         writer.writerows(predictions)
         
-def enumerator(config, key, node, total_nodes):
-    path = Path(config['data'][key])
+def enumerator(root, node, total_nodes):
+    config = ConfigParser()
+    config.read(str(path))
+
+    path = Path(config['data']['raw'])
     csv_files = sorted(path.glob('*.csv'))
-    view = islice(csv_files, node, None, total_nodes)
-    
-    yield from map(lambda x: Args(int(x.stem), x, config), view)
+
+    for i in path.iterdir():
+        for j in islice(csv_files, node, None, total_nodes):
+            yield Args(int(j.stem), j, i, config)
 
 ############################################################################
 
 arguments = ArgumentParser()
+arguments.add_argument('--root')
 arguments.add_argument('--node', type=int, default=0)
 arguments.add_argument('--total-nodes', type=int, default=1)
-arguments.add_argument('--configuration')
+arguments.add_argument('--observe', action='store_true')
+arguments.add_argument('--predict', action='store_true')
 args = arguments.parse_args()
 
-config = ConfigParser()
-config.read(args.configuration)
 
-actions = [
-    ('raw', observe),
-    ('observations', predict),
-]
+actions = []
+if args.observe:
+    actions.append(observe)
+if args.predict:
+    actions.append(predict)
 
 with Pool(maxtasksperchild=1) as pool:
-    for (key, func) in filter(lambda x: x[0] in config['data'], actions):
-        iterable = enumerator(config, key, args.node, args.total_nodes)
+    root = Path(root)
+    for func in actions:
+        iterable = enumerator(root, args.node, args.total_nodes)
         for _ in pool.imap_unordered(func, iterable):
             pass
