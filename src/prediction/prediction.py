@@ -169,13 +169,13 @@ def predict(args):
         writer.writerows(predictions)
         
 def enumerator(root, node, total_nodes):
-    config = ConfigParser()
-    config.read(str(root.joinpath('ini')))
+    for i in Path(root).iterdir():
+        config = ConfigParser()
+        config.read(str(i.joinpath('ini')))
 
-    path = Path(config['data']['raw'])
-    csv_files = sorted(path.glob('*.csv'))
-
-    for i in path.iterdir():
+        path = Path(config['data']['raw'])
+        csv_files = sorted(path.glob('*.csv'))
+        
         for j in islice(csv_files, node, None, total_nodes):
             yield Args(int(j.stem), j, i, config)
 
