@@ -1,19 +1,18 @@
 import warnings
-import sklearn.metrics
+from collections import namedtuple
 
 import numpy as np
-
-from lib import logger
-from collections import namedtuple
+import sklearn.metrics
 from sklearn.metrics.base import UndefinedMetricWarning
 from sklearn.cross_validation import StratifiedShuffleSplit
-
 from sklearn.svm import SVC, SVR
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.naive_bayes import GaussianNB
+
+from lib import logger
 
 Data = namedtuple('Data', 'x_train, x_test, y_train, y_test')
 ClassifierFactory = namedtuple('ClassifierFactory', [ 'construct', 'kwargs' ])
