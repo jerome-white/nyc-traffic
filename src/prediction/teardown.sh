@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for i in `find prediction -name 'observations'`; do
-    path=`dirname $i`
-    XZ_OPT=-9 tar -cJf $path/observations.tar.xz -C $path observations
+for i in `find prediction -type d -name 'observations'`; do
+    tar -caf $i.tar.xz -C `dirname $i` `basename $i` &&
+        rm --recursive --force $path/observations
 done
