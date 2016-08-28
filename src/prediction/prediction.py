@@ -1,6 +1,5 @@
 import os
 import csv
-import itertools
 
 import numpy as np
 import pandas as pd
@@ -83,7 +82,7 @@ def observe(args):
     #
     depth = int(args.config['neighbors']['depth'])
     network = RoadNetwork(args.config['data']['network'])
-    raw_cluster = list(itertools.islice(network.bfs(segment.name), depth))
+    raw_cluster = list(islice(network.bfs(segment.name), depth))
     if len(raw_cluster) != depth:
         msg = '{0}: network too shallow {1} {2}'
         log.error(msg.format(segment.name, len(raw_cluster), depth))
@@ -163,16 +162,18 @@ def predict(args):
         writer.writeheader()
         writer.writerows(predictions)
         
-def enum(config, key):
+def enumerator(config, key, node, total_nodes):
     path = Path(config['data'][key])
-    csv_files = path.glob('*.csv')
+    csv_files = sorted(path.glob('*.csv'))
+    view = islice(csv_files, node, None, total_nodes)
     
-    yield from map(lambda x: Args(int(x.stem), x, config), csv_files)
+    yield from map(lambda x: Args(int(x.stem), x, config), view)
 
 ############################################################################
 
 arguments = ArgumentParser()
-arguments.add_argument('--processors')
+arguments.add_argument('--node', type=int, default=0)
+arguments.add_argument('--total-nodes', type=int, default=1)
 arguments.add_argument('--configuration')
 args = arguments.parse_args()
 
@@ -184,11 +185,8 @@ actions = [
     ('observations', predict),
 ]
 
-kwargs = { 'maxtasksperchild': 1 }
-if args.processors:
-    kwargs['processes'] = min(os.cpu_count(), max(1, int(args.processors)))
-
-with Pool(**kwargs) as pool:
+with Pool(maxtasksperchild=1) as pool:
     for (key, func) in filter(lambda x: x[0] in config['data'], actions):
-        for _ in pool.imap_unordered(func, enum(config, key)):
+        iterable = enumerator(config, key, args.node, args.total_nodes)
+        for _ in pool.imap_unordered(func, iterable):
             pass
