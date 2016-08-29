@@ -73,7 +73,7 @@ class Cluster(list):
 
 def observe(args):
     log = logger.getlogger()
-    log.info('observer {0}'.format(args.segment))
+    log.info('+ {0}: observe'.format(args.segment))
 
     segment = Segment(args.data, name=args.segment)
 
@@ -134,10 +134,12 @@ def observe(args):
     with Writer(args.root, 'observations', args.segment) as fp:
         writer = csv.writer(fp)
         writer.writerows(observations)
+
+    return segment.name
         
 def predict(args):
     log = logger.getlogger()
-    log.info(args.segment)
+    log.info('+ {0}: predict'.format(args.segment))
 
     machine_opts = args.config['machine']
     
@@ -155,7 +157,7 @@ def predict(args):
     testing = float(machine_opts['testing'])
 
     for (i, data) in enumerate(classifier.stratify(folds, testing)):
-        log.info('fold: {0}'.format(i))
+        log.debug('fold: {0}'.format(i))
         
         for (name, clf) in classifier.machinate(machine_opts['method']):
             try:
@@ -177,17 +179,23 @@ def predict(args):
         writer = csv.DictWriter(fp, predictions[0].keys())
         writer.writeheader()
         writer.writerows(predictions)
+
+    return segment.name
         
 def enumerator(root, node, total_nodes):
-    for i in Path(root).iterdir():
+    log = logger.getlogger()
+    
+    for (i, path) in enumerate(Path(root).iterdir()):
         config = ConfigParser()
-        config.read(str(i.joinpath('ini')))
+        config.read(str(path.joinpath('ini')))
 
         path = Path(config['data']['raw'])
         csv_files = sorted(path.glob('*.csv'))
+        if i == 0:
+            log.info(','.join(map(lambda x: x.stem, csv_files)))
         
         for j in islice(csv_files, node, None, total_nodes):
-            yield Args(int(j.stem), j, i, config)
+            yield Args(int(j.stem), j, path, config)
 
 ############################################################################
 
@@ -212,6 +220,6 @@ with Pool(maxtasksperchild=1) as pool:
     root = Path(args.top_level)
     for func in actions:
         iterable = enumerator(root, args.node, args.total_nodes)
-        for _ in pool.imap_unordered(func, iterable):
-            pass
+        for i in filter(None, pool.imap_unordered(func, iterable)):
+            log.info('- {0}: {1}'.format(i, func.__name__))
 log.info('|< {0}/{1}'.format(args.node, args.total_nodes))
