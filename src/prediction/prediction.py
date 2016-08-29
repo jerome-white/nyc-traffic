@@ -139,7 +139,10 @@ def predict(args):
     machine_opts = args.config['machine']
     
     path = args.root.joinpath('observations', str(args.segment))
-    observations = np.loadtxt(str(path.with_suffix('.csv')), delimiter=',')
+    results = path.with_suffix('.csv')
+    if not results.exists():
+        return
+    observations = np.loadtxt(str(results), delimiter=',')
     classifier = MachineSelector(machine_opts['model'])(observations)
 
     predictions = []
@@ -182,10 +185,10 @@ def enumerator(root, node, total_nodes):
 ############################################################################
 
 arguments = ArgumentParser()
-arguments.add_argument('--node', type=int, default=0)
 arguments.add_argument('--top-level')
 arguments.add_argument('--observe', action='store_true')
 arguments.add_argument('--predict', action='store_true')
+arguments.add_argument('--node', type=int, default=0)
 arguments.add_argument('--total-nodes', type=int, default=1)
 args = arguments.parse_args()
 
@@ -196,9 +199,12 @@ if args.observe:
 if args.predict:
     actions.append(predict)
 
+log = logger.getlogger(True)
+log.info('|> {0}/{1}'.format(args.node, args.total_nodes))
 with Pool(maxtasksperchild=1) as pool:
     root = Path(args.top_level)
     for func in actions:
         iterable = enumerator(root, args.node, args.total_nodes)
         for _ in pool.imap_unordered(func, iterable):
             pass
+log.info('|< {0}/{1}'.format(args.node, args.total_nodes))
