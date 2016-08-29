@@ -76,10 +76,13 @@ def observe(args):
     log.info('observer {0}'.format(args.segment))
 
     segment = Segment(args.data, name=args.segment)
-    if segment.frequency > float(args.config['parameters']['intra-reporting']):
-        msg = '{0}: non operational {1}'
-        log.error(msg.format(segment.name, segment.frequency))
-        return
+
+    if 'intra-reporting' in args.config['parameters']:
+        frequency = float(args.config['parameters']['intra-reporting'])
+        if segment.frequency > frequency:
+            msg = '{0}: non operational {1}'
+            log.error(msg.format(segment.name, segment.frequency))
+            return
 
     #
     # Obtain the network...
@@ -145,6 +148,8 @@ def predict(args):
     observations = np.loadtxt(str(results), delimiter=',')
     classifier = MachineSelector(machine_opts['model'])(observations)
 
+    segment = Segment(args.data, name=args.segment)
+
     predictions = []
     folds = int(machine_opts['folds'])
     testing = float(machine_opts['testing'])
@@ -162,7 +167,9 @@ def predict(args):
             classifier.set_probabilities(clf, data.x_test)
 
             d = dict(classifier.predict(data, pred))
-            d.update({ 'fold': i, 'classifier': name })
+            d.update({ 'fold': i,
+                       'classifier': name,
+                       'frequency': segment.frequency })
             
             predictions.append(d)
 

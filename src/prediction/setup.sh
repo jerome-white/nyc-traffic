@@ -29,7 +29,6 @@ done
 python3 $NYCTRAFFIC/src/prediction/mkconfigs.py \
 	--data $readings \
 	--network $network \
-        --top-level $base \
-        --reporting-threshold 90
+        --top-level $base
 
 echo $base

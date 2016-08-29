@@ -71,7 +71,6 @@ for i in map(lambda x: (x, 1 - x), testing_sizes):
 #
 # Build the file!
 #
-p = 'parameters'
 helper = {
     'window': list(filter(lambda x: x in options, window.names_)),
     'neighbors': [ 'depth', 'selection' ],
@@ -92,10 +91,11 @@ for (i, o) in enumerate(product(options)):
         'testing': test,
     }
 
-    config[p] = {
+    config['parameters'] = {
         'acceleration': str(-0.002),
-        'intra-reporting': args.reporting_threshold,
     }
+    if args.reporting_threshold:
+        config['parameters']['intra-reporting'] = args.reporting_threshold
 
     config['data'] = {
         'raw': args.data,
