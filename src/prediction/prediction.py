@@ -17,6 +17,7 @@ from lib.cpoint import Selector as ClassifierSelector
 from lib.network import RoadNetwork
 from lib.features import Selector as FeatureSelector
 
+import ledger
 from machine import Selector as MachineSelector
 
 Args = namedtuple('Args', 'segment, data, root, config, entry')
