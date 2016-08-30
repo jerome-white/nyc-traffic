@@ -19,7 +19,7 @@ from lib.features import Selector as FeatureSelector
 
 from machine import Selector as MachineSelector
 
-Args = namedtuple('Args', 'segment, data, root, config')
+Args = namedtuple('Args', 'segment, data, root, config, entry')
 
 class Writer:
     def __enter__(self):
@@ -34,7 +34,7 @@ class Writer:
         fname = path.joinpath(str(segment_id)).with_suffix('.' + suffix)
 
         self.fp = fname.open('w')
-
+        
 class Segment:
     def __init__(self, csv_file, name=None, freq='T'):
         df = pd.read_csv(str(csv_file),
@@ -82,7 +82,7 @@ def observe(args):
         if segment.frequency > frequency:
             msg = '{0}: non operational {1}'
             log.error(msg.format(segment.name, segment.frequency))
-            return
+            return (args.entry, False)
 
     #
     # Obtain the network...
@@ -93,7 +93,7 @@ def observe(args):
     if len(raw_cluster) != depth:
         msg = '{0}: network too shallow {1} {2}'
         log.error(msg.format(segment.name, len(raw_cluster), depth))
-        return
+        return (args.entry, False)
 
     #
     # ... convert it to segments
@@ -104,7 +104,7 @@ def observe(args):
         for j in level:
             p = path.joinpath(str(j)).with_suffix('.csv')
             if not p.exists():
-                log.error('No file for {0}'.format(str(p)))
+                log.warning('No file for {0}'.format(str(p)))
                 continue
             s = Segment(p, name=j)
             # s.lag(segment, i)
@@ -121,13 +121,15 @@ def observe(args):
     
     window = win.window_from_config(args.config)
     observations = []
-    
+
+    log.debug('+ {0}: slide'.format(args.segment))
     for i in window.slide(df.index):
         label = rt.apply(segment.df.loc[i].values, window, classifier)
         if label is not np.nan:
             features = transform.select(df.loc[i])
             observations.append(features + [ int(label) ])
-
+    log.debug('- {0}: slide'.format(args.segment))
+    
     #
     #
     #
@@ -135,7 +137,7 @@ def observe(args):
         writer = csv.writer(fp)
         writer.writerows(observations)
 
-    return segment.name
+    return (args.entry, True)
         
 def predict(args):
     log = logger.getlogger()
@@ -146,7 +148,7 @@ def predict(args):
     path = args.root.joinpath('observations', str(args.segment))
     results = path.with_suffix('.csv')
     if not results.exists():
-        return
+        return (args.entry, False)
     observations = np.loadtxt(str(results), delimiter=',')
     classifier = MachineSelector(machine_opts['model'])(observations)
 
@@ -156,6 +158,7 @@ def predict(args):
     folds = int(machine_opts['folds'])
     testing = float(machine_opts['testing'])
 
+    log.debug('+ {0}: stratify'.format(args.segment))
     for (i, data) in enumerate(classifier.stratify(folds, testing)):
         log.debug('fold: {0}'.format(i))
         
@@ -164,7 +167,7 @@ def predict(args):
                 clf.fit(data.x_train, data.y_train)
                 pred = clf.predict(data.x_test)
             except (AttributeError, ValueError) as error:
-                log.error('{0} {1} {2}'.format(name, data, str(error)))
+                log.warning('{0} {1} {2}'.format(name, data, str(error)))
                 continue
             classifier.set_probabilities(clf, data.x_test)
 
@@ -174,15 +177,16 @@ def predict(args):
                        'frequency': segment.frequency })
             
             predictions.append(d)
-
+    log.debug('- {0}: stratify'.format(args.segment))
+    
     with Writer(args.root, 'results', args.segment) as fp:
         writer = csv.DictWriter(fp, predictions[0].keys())
         writer.writeheader()
         writer.writerows(predictions)
 
-    return segment.name
+    return (args.entry, True)
         
-def enumerator(root, node, total_nodes):
+def enumerator(root, node, total_nodes, records, event):
     log = logger.getlogger()
     
     for (i, path) in enumerate(Path(root).iterdir()):
@@ -191,15 +195,17 @@ def enumerator(root, node, total_nodes):
 
         path = Path(config['data']['raw'])
         csv_files = sorted(path.glob('*.csv'))
-        if i == 0:
-            log.info(','.join(map(lambda x: x.stem, csv_files)))
         
         for j in islice(csv_files, node, None, total_nodes):
-            yield Args(int(j.stem), j, path, config)
+            segment_id = int(j.stem)
+            entry = ledger.Entry(path.stem, segment_id, event)
+            if entry not in records:
+                yield Args(segment_id, j, path, config, entry)
 
 ############################################################################
 
 arguments = ArgumentParser()
+arguments.add_argument('--ledger')
 arguments.add_argument('--top-level')
 arguments.add_argument('--observe', action='store_true')
 arguments.add_argument('--predict', action='store_true')
@@ -207,19 +213,21 @@ arguments.add_argument('--node', type=int, default=0)
 arguments.add_argument('--total-nodes', type=int, default=1)
 args = arguments.parse_args()
 
-
-actions = []
-if args.observe:
-    actions.append(observe)
-if args.predict:
-    actions.append(predict)
+actions = [
+    (args.observe, observe),
+    (args.predict, predict),
+]
 
 log = logger.getlogger(True)
 log.info('|> {0}/{1}'.format(args.node, args.total_nodes))
-with Pool(maxtasksperchild=1) as pool:
-    root = Path(args.top_level)
-    for func in actions:
-        iterable = enumerator(root, args.node, args.total_nodes)
-        for i in filter(None, pool.imap_unordered(func, iterable)):
-            log.info('- {0}: {1}'.format(i, func.__name__))
+
+with ledger.Ledger(args.ledger, args.node, init=True) as records:
+    with Pool(maxtasksperchild=1) as pool:
+        root = Path(args.top_level)
+        for func in filter(all, actions):
+            f = func.__name__
+            itr = enumerator(root, args.node, args.total_nodes, records, f)
+            for i in pool.imap_unordered(func, itr):
+                records.record(*i)
+
 log.info('|< {0}/{1}'.format(args.node, args.total_nodes))
