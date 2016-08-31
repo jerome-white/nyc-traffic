@@ -10,7 +10,7 @@ class Ledger(dict):
     def __exit__(self, exc_type, exc_value, traceback):
         self.fp.close()
         
-    def __init__(self, ledger, node, init=False):
+    def __init__(self, ledger, node):
         super().__init__()
         
         if ledger.is_dir():
@@ -20,7 +20,7 @@ class Ledger(dict):
                     for (ini, segment, event, status) in reader:
                         entry = Entry(ini, int(segment), event)
                         self[entry] = int(status)
-        elif init:
+        else:
             ledger.mkdir(parents=True, exist_ok=True)
 
         output = ledger.joinpath(str(node)).with_suffix('.csv')
