@@ -230,7 +230,6 @@ log.info('|> {0}/{1}'.format(args.node, args.total_nodes))
 
 with ledger.Ledger(root.joinpath('.ledger'), int(args.node)) as records:
     with Pool(maxtasksperchild=1) as pool:
-        
         for (_, func) in filter(all, actions):
             f = func.__name__
             itr = enumerator(root, args.node, args.total_nodes, records, f)
