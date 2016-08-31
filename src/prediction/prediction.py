@@ -228,7 +228,7 @@ actions = [
 log = logger.getlogger(True)
 log.info('|> {0}/{1}'.format(args.node, args.total_nodes))
 
-with ledger.Ledger(args.ledger, args.node, init=True) as records:
+with ledger.Ledger(Path(args.ledger), int(args.node)) as records:
     with Pool(maxtasksperchild=1) as pool:
         root = Path(args.top_level)
         for func in filter(all, actions):
