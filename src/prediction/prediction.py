@@ -38,10 +38,11 @@ class Writer:
         
 class Segment:
     def __init__(self, csv_file, name=None, freq='T'):
+        columns = [ 'speed', 'travel' ]
         df = pd.read_csv(str(csv_file),
                          index_col='as_of',
                          parse_dates=True,
-                         dtype={ x: np.float64 for x in [ 'speed', 'travel' ]})
+                         dtype={ x: np.float64 for x in columns })
         
         self.frequency = df.index.to_series().diff().mean().total_seconds()
         self.df = df.resample(freq).mean()
@@ -113,7 +114,7 @@ def observe(args):
     df = cluster.combine()
     
     #
-    #
+    # Setup machine parameters
     #
     m = args.config['machine']
     transform = FeatureSelector(m['feature-transform'])()
@@ -217,17 +218,17 @@ arguments.add_argument('--observe', action='store_true')
 arguments.add_argument('--predict', action='store_true')
 arguments.add_argument('--node', type=int, default=0)
 arguments.add_argument('--total-nodes', type=int, default=1)
-args = arguments.parse_args()
 
+args = arguments.parse_args()
+log = logger.getlogger(True)
+
+root = Path(args.top_level)
 actions = [
     (args.observe, observe),
     (args.predict, predict),
 ]
-root = Path(args.top_level)
 
-log = logger.getlogger(True)
 log.info('|> {0}/{1}'.format(args.node, args.total_nodes))
-
 with ledger.Ledger(root.joinpath('.ledger'), int(args.node)) as records:
     with Pool(maxtasksperchild=1) as pool:
         for (_, func) in filter(all, actions):
@@ -235,5 +236,4 @@ with ledger.Ledger(root.joinpath('.ledger'), int(args.node)) as records:
             itr = enumerator(root, args.node, args.total_nodes, records, f)
             for i in pool.imap_unordered(func, itr):
                 records.record(*i)
-
 log.info('|< {0}/{1}'.format(args.node, args.total_nodes))
