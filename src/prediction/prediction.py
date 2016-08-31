@@ -196,23 +196,22 @@ def predict(args):
     return (args.entry, True)
         
 def enumerator(root, node, total_nodes, records, event):
-    for (i, path) in enumerate(Path(root).iterdir()):
+    for run_dir in Path(root).iterdir():
         config = ConfigParser()
-        config.read(str(path.joinpath('ini')))
+        config.read(str(run_dir.joinpath('ini')))
 
         path = Path(config['data']['raw'])
         csv_files = sorted(path.glob('*.csv'))
         
-        for j in islice(csv_files, node, None, total_nodes):
-            segment_id = int(j.stem)
-            entry = ledger.Entry(path.stem, segment_id, event)
+        for data_file in islice(csv_files, node, None, total_nodes):
+            segment_id = int(data_file.stem)
+            entry = ledger.Entry(run_dir.stem, segment_id, event)
             if entry not in records:
-                yield Args(segment_id, j, path, config, entry)
+                yield Args(segment_id, data_file, run_dir, config, entry)
 
 ############################################################################
 
 arguments = ArgumentParser()
-arguments.add_argument('--ledger')
 arguments.add_argument('--top-level')
 arguments.add_argument('--observe', action='store_true')
 arguments.add_argument('--predict', action='store_true')
@@ -224,13 +223,14 @@ actions = [
     (args.observe, observe),
     (args.predict, predict),
 ]
+root = Path(args.top_level)
 
 log = logger.getlogger(True)
 log.info('|> {0}/{1}'.format(args.node, args.total_nodes))
 
-with ledger.Ledger(Path(args.ledger), int(args.node)) as records:
+with ledger.Ledger(root.joinpath('.ledger'), int(args.node)) as records:
     with Pool(maxtasksperchild=1) as pool:
-        root = Path(args.top_level)
+        
         for (_, func) in filter(all, actions):
             f = func.__name__
             itr = enumerator(root, args.node, args.total_nodes, records, f)
