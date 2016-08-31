@@ -132,7 +132,7 @@ def observe(args):
     log.debug('- {0}: slide'.format(args.segment))
     
     #
-    #
+    # Save observations to disk
     #
     with Writer(args.root, 'observations', args.segment) as fp:
         writer = csv.writer(fp)
@@ -146,6 +146,9 @@ def predict(args):
 
     machine_opts = args.config['machine']
     
+    #
+    # Obtain the observations
+    #
     path = args.root.joinpath('observations', str(args.segment))
     results = path.with_suffix('.csv')
     if not results.exists():
@@ -159,6 +162,9 @@ def predict(args):
     folds = int(machine_opts['folds'])
     testing = float(machine_opts['testing'])
 
+    #
+    # Make the predictions
+    #
     log.debug('+ {0}: stratify'.format(args.segment))
     for (i, data) in enumerate(classifier.stratify(folds, testing)):
         log.debug('fold: {0}'.format(i))
@@ -176,10 +182,12 @@ def predict(args):
             d.update({ 'fold': i,
                        'classifier': name,
                        'frequency': segment.frequency })
-            
             predictions.append(d)
     log.debug('- {0}: stratify'.format(args.segment))
     
+    #
+    # Save results to disk
+    #
     with Writer(args.root, 'results', args.segment) as fp:
         writer = csv.DictWriter(fp, predictions[0].keys())
         writer.writeheader()
@@ -188,8 +196,6 @@ def predict(args):
     return (args.entry, True)
         
 def enumerator(root, node, total_nodes, records, event):
-    log = logger.getlogger()
-    
     for (i, path) in enumerate(Path(root).iterdir()):
         config = ConfigParser()
         config.read(str(path.joinpath('ini')))
