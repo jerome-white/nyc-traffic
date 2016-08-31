@@ -231,7 +231,7 @@ log.info('|> {0}/{1}'.format(args.node, args.total_nodes))
 with ledger.Ledger(Path(args.ledger), int(args.node)) as records:
     with Pool(maxtasksperchild=1) as pool:
         root = Path(args.top_level)
-        for func in filter(all, actions):
+        for (_, func) in filter(all, actions):
             f = func.__name__
             itr = enumerator(root, args.node, args.total_nodes, records, f)
             for i in pool.imap_unordered(func, itr):
