@@ -182,7 +182,9 @@ def predict(args):
             d = dict(classifier.predict(data, pred))
             d.update({ 'fold': i,
                        'classifier': name,
-                       'frequency': segment.frequency })
+                       'frequency': segment.frequency,
+                       'segment': segment.name,
+            })
             predictions.append(d)
     log.debug('- {0}: stratify'.format(args.segment))
     
