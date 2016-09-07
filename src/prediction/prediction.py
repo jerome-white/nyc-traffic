@@ -10,9 +10,9 @@ from multiprocessing import Pool
 import numpy as np
 import pandas as pd
 
-import lib.window as win
 import lib.rollingtools as rt
 from lib import logger
+from lib.window import window_from_config
 from lib.cpoint import Selector as ClassifierSelector
 from lib.network import RoadNetwork
 from lib.features import Selector as FeatureSelector
@@ -121,7 +121,7 @@ def observe(args):
     threshold = float(args.config['parameters']['acceleration'])
     classifier = ClassifierSelector(m['change-point'])(threshold)
     
-    window = win.window_from_config(args.config)
+    window = window_from_config(args.config)
     observations = []
 
     log.debug('+ {0}: slide'.format(args.segment))
