@@ -195,11 +195,15 @@ def predict(args):
         writer.writerows(predictions)
 
     return (args.entry, True)
-        
+
 def enumerator(root, node, total_nodes, records, event):
     for run_dir in Path(root).iterdir():
+        ini = run_dir.joinpath('ini')
+        if not ini.is_file():
+            continue
+
         config = ConfigParser()
-        config.read(str(run_dir.joinpath('ini')))
+        config.read(str(ini))
 
         path = Path(config['data']['raw'])
         csv_files = sorted(path.glob('*.csv'))
