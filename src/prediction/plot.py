@@ -7,12 +7,15 @@ from configparser import ConfigParser
 import numpy as np
 import pandas as pd
 
+from lib import logger
+from lib.utils import mkplot_
 from lib.window import window_from_config
 
 def mkframes(args, metrics):
+    log = logger.getlogger()
     usecols = list(metrics) + [ 'frequency' ]
     
-    for i in Path(args.results_directory).iterdir():
+    for i in args.results_directory.iterdir():
         ini = i.joinpath('ini')
         if not ini.is_file():
             continue
@@ -32,31 +35,35 @@ def mkframes(args, metrics):
         #     (a, b) = getattr(x, j) for x in (args, window)
         #     conditions.append(not a or b in a)
             
-        if not all(conditions):
-            continue
+        if all(conditions):
+            for j in i.joinpath('results').glob('*.csv'):
+                df = pd.read_csv(str(j), usecols=usecols)
 
-        for j in i.joinpath('results').glob('*.csv'):
-            df = pd.read_csv(str(j), usecols=usecols)
-            threshold = df.frequency.unique()
-            assert(len(threshold) == 1)
-            if threshold[0] > args.threshold:
-                continue
+                threshold = df.frequency.unique()
+                assert(len(threshold) == 1)
+                if threshold[0] > args.threshold:
+                    continue
             
-            df['segment'] = int(j.stem)
-            df['neighbors'] = neighbors
-            df['prediction'] = window.prediction
-            df['observation'] = window.observation
+                log.info(i)
+
+                df['segment'] = int(j.stem)
+                df['neighbors'] = neighbors
+                df['prediction'] = window.prediction
+                df['observation'] = window.observation
             
-            yield df
+                yield df
 
 arguments = ArgumentParser()
 arguments.add_argument('--max-neighbors', default=0, type=int)
 arguments.add_argument('--neighbors-inclusive', action='store_true')
-arguments.add_argument('--results-directory')
+arguments.add_argument('--results-directory', type=Path)
 arguments.add_argument('--observation', type=int, action='append')
 arguments.add_argument('--prediction', type=int, action='append')
 arguments.add_argument('--threshold', default=np.inf, type=float)
 args = arguments.parse_args()
+
+if args.results_directory is None or not args.results_directory.exists():
+    exit()
 
 metrics = OrderedDict({
     # 'f1_score': 'F$_{1}$',
@@ -65,10 +72,12 @@ metrics = OrderedDict({
 
 frames = mkframes(args, metrics.keys())
 df = pd.concat(frames, ignore_index=True, copy=False)
-# df.drop(df[df.frequency > args.threshold].index, inplace=True)
+df.to_pickle('frame.pkl')
 
 # groups = df.groupby(['segment'])
 # g = groups[list(metrics.keys())]
-# (means, errors) = [ f() for x in (g.mean, g.sem) ]
+# (means, errors) = [ f() for f in (g.mean, g.sem) ]
 
-# means.plot(kind='bar', yerr=errors
+# # yticks = np.linspace(0, 1, 11)
+# fig = means.plot(kind='bar', yerr=errors, ylim=(0,1)) # , yticks=yticks)
+# mkplot_(fig, 'plot.png')
