@@ -198,8 +198,8 @@ def predict(args):
 
     return (args.entry, True)
 
-def enumerator(root, node, total_nodes, records, event):
-    for run_dir in Path(root).iterdir():
+def enumerator(records, event, args):
+    for run_dir in Path(args.top_level).iterdir():
         ini = run_dir.joinpath('ini')
         if not ini.is_file():
             continue
@@ -210,7 +210,7 @@ def enumerator(root, node, total_nodes, records, event):
         path = Path(config['data']['raw'])
         csv_files = sorted(path.glob('*.csv'))
         
-        for data_file in islice(csv_files, node, None, total_nodes):
+        for data_file in islice(csv_files, args.node, None, args.total_nodes):
             segment_id = int(data_file.stem)
             entry = ledger.Entry(run_dir.stem, segment_id, event)
             if entry not in records:
@@ -219,7 +219,7 @@ def enumerator(root, node, total_nodes, records, event):
 ############################################################################
 
 arguments = ArgumentParser()
-arguments.add_argument('--top-level')
+arguments.add_argument('--top-level', type=Path)
 arguments.add_argument('--observe', action='store_true')
 arguments.add_argument('--predict', action='store_true')
 arguments.add_argument('--node', type=int, default=0)
@@ -228,18 +228,18 @@ arguments.add_argument('--total-nodes', type=int, default=1)
 args = arguments.parse_args()
 log = logger.getlogger(True)
 
-root = Path(args.top_level)
 actions = [
     (args.observe, observe),
     (args.predict, predict),
 ]
+ldir = args.top_level.joinpath('.ledger')
 
 log.info('|> {0}/{1}'.format(args.node, args.total_nodes))
-with ledger.Ledger(root.joinpath('.ledger'), int(args.node)) as records:
+with ledger.Ledger(ldir, int(args.node)) as records:
     with Pool(maxtasksperchild=1) as pool:
         for (_, func) in filter(all, actions):
             f = func.__name__
-            itr = enumerator(root, args.node, args.total_nodes, records, f)
+            itr = enumerator(records, f, args)
             for i in pool.imap_unordered(func, itr):
                 records.record(*i)
 log.info('|< {0}/{1}'.format(args.node, args.total_nodes))
