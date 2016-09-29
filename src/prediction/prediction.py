@@ -225,8 +225,8 @@ arguments.add_argument('--observe', action='store_true')
 arguments.add_argument('--predict', action='store_true')
 arguments.add_argument('--node', type=int, default=0)
 arguments.add_argument('--total-nodes', type=int, default=1)
-
 args = arguments.parse_args()
+
 log = logger.getlogger(True)
 
 actions = [
@@ -236,7 +236,7 @@ actions = [
 ldir = args.top_level.joinpath('.ledger')
 
 log.info('|> {0}/{1}'.format(args.node, args.total_nodes))
-with ledger.Ledger(ldir, int(args.node)) as records:
+with ledger.Ledger(ldir, args.node) as records:
     with Pool(maxtasksperchild=1) as pool:
         for (_, func) in filter(all, actions):
             f = func.__name__
