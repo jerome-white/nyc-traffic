@@ -18,9 +18,7 @@ def product(d):
         yield dict(zip(d, i))
 
 arguments = ArgumentParser()
-arguments.add_argument('--data')
-arguments.add_argument('--network')
-arguments.add_argument('--top-level')
+arguments.add_argument('--top-level', type=Path)
 arguments.add_argument('--reporting-threshold')
 args = arguments.parse_args()
 
@@ -97,20 +95,14 @@ for (i, o) in enumerate(product(options)):
     if args.reporting_threshold:
         config['parameters']['intra-reporting'] = args.reporting_threshold
 
-    config['data'] = {
-        'raw': args.data,
-        'network': args.network,
-    }
-
     while True:
         (c, _) = str(uuid4()).split('-', 1)
-        path = Path(args.top_level, c)
+        path = args.top_level.joinpath(c)
         try:
             path.mkdir(parents=True)
             break
         except FileExistsError:
             pass
 
-    path = path.joinpath('ini')
-    with path.open('w') as fp:
+    with path.joinpath('ini').open('w') as fp:
         config.write(fp)
