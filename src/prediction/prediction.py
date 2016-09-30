@@ -208,9 +208,9 @@ def enumerator(records, event, args):
         config = ConfigParser()
         config.read(str(ini))
 
-        path = Path(config['data']['raw'])
+        path = args.data if args.data else Path(config['data']['raw'])
         csv_files = sorted(path.glob('*.csv'))
-        
+
         for data_file in islice(csv_files, args.node, None, args.total_nodes):
             segment_id = int(data_file.stem)
             entry = ledger.Entry(run_dir.stem, segment_id, event)
@@ -220,6 +220,7 @@ def enumerator(records, event, args):
 ############################################################################
 
 arguments = ArgumentParser()
+arguments.add_argument('--data', type=Path)
 arguments.add_argument('--top-level', type=Path)
 arguments.add_argument('--observe', action='store_true')
 arguments.add_argument('--predict', action='store_true')
