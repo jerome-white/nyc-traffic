@@ -79,7 +79,7 @@ class Network:
 
 class RoadNetwork(dict):
     def __init__(self, network_file):
-        with open(network_file) as fp:
+        with network_file.open() as fp:
             for row in csv.reader(fp):
                 (key, *row) = list(map(int, row))
                 self[key] = row

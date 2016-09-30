@@ -20,7 +20,7 @@ from lib.features import Selector as FeatureSelector
 import ledger
 from machine import Selector as MachineSelector
 
-Args = namedtuple('Args', 'segment, data, root, config, entry')
+Args = namedtuple('Args', 'segment, data, root, entry, config, cli')
 
 class Writer:
     def __enter__(self):
@@ -91,7 +91,7 @@ def observe(args):
     # Obtain the network...
     #
     depth = int(args.config['neighbors']['depth'])
-    network = RoadNetwork(args.config['data']['network'])
+    network = RoadNetwork(args.cli.network)
     raw_cluster = list(islice(network.bfs(segment.name), depth))
     if len(raw_cluster) != depth:
         msg = '{0}: network too shallow {1} {2}'
@@ -101,11 +101,10 @@ def observe(args):
     #
     # ... convert it to segments
     #
-    path = Path(args.config['data']['raw'])
     cluster = Cluster(segment)
     for (i, level) in enumerate(raw_cluster):
         for j in level:
-            p = path.joinpath(str(j)).with_suffix('.csv')
+            p = args.cli.data.joinpath(str(j)).with_suffix('.csv')
             if not p.exists():
                 log.warning('No file for {0}'.format(str(p)))
                 continue
@@ -200,8 +199,8 @@ def predict(args):
 
     return (args.entry, True)
 
-def enumerator(records, event, args):
-    for run_dir in Path(args.top_level).iterdir():
+def enumerator(records, event, cli):
+    for run_dir in cli.top_level.iterdir():
         ini = run_dir.joinpath('ini')
         if not ini.is_file():
             continue
@@ -209,19 +208,19 @@ def enumerator(records, event, args):
         config = ConfigParser()
         config.read(str(ini))
 
-        path = args.data if args.data else Path(config['data']['raw'])
-        csv_files = sorted(path.glob('*.csv'))
+        csv_files = sorted(cli.data.glob('*.csv'))
 
-        for data_file in islice(csv_files, args.node, None, args.total_nodes):
+        for data_file in islice(csv_files, cli.node, None, cli.total_nodes):
             segment_id = int(data_file.stem)
             entry = ledger.Entry(run_dir.stem, segment_id, event)
             if entry not in records:
-                yield Args(segment_id, data_file, run_dir, config, entry)
+                yield Args(segment_id, data_file, run_dir, entry, config, cli)
 
 ############################################################################
 
 arguments = ArgumentParser()
 arguments.add_argument('--data', type=Path)
+arguments.add_argument('--network', type=Path)
 arguments.add_argument('--top-level', type=Path)
 arguments.add_argument('--observe', action='store_true')
 arguments.add_argument('--predict', action='store_true')
@@ -242,7 +241,6 @@ with ledger.Ledger(ldir, args.node) as records:
     with Pool(maxtasksperchild=1) as pool:
         for (_, func) in filter(all, actions):
             f = func.__name__
-            itr = enumerator(records, f, args)
-            for i in pool.imap_unordered(func, itr):
+            for i in pool.imap_unordered(func, enumerator(records, f, args)):
                 records.record(*i)
 log.info('|< {0}/{1}'.format(args.node, args.total_nodes))

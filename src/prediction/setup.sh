@@ -1,12 +1,5 @@
 #!/bin/bash
 
-while getopts "r:n:b:" OPTION; do
-    case $OPTION in
-        r) readings=$OPTARG ;;
-        n) network=$OPTARG ;;
-        *) exit 1 ;;
-    esac
-done
 p_log=$NYCTRAFFICLOG/prediction
 mkdir --parents $p_log
 
@@ -26,9 +19,6 @@ done
 #
 # Create the configuration files
 #
-python3 $NYCTRAFFIC/src/prediction/mkconfigs.py \
-	--data $readings \
-	--network $network \
-        --top-level $base
+python3 $NYCTRAFFIC/src/prediction/mkconfigs.py --top-level $base
 
 echo $base
