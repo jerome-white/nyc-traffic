@@ -129,7 +129,8 @@ def observe(args):
     for i in window.slide(df.index):
         label = rt.apply(segment.df.loc[i].values, window, classifier)
         if label is not np.nan:
-            features = transform.select(df.loc[i])
+            index = i[:window.observation]
+            features = transform.select(df.loc[index])
             observations.append(features + [ int(label) ])
     log.debug('- {0}: slide'.format(args.segment))
     
