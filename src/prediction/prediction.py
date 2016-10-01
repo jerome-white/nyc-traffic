@@ -200,19 +200,23 @@ def predict(args):
 
 def enumerator(records, event, cli):
     csv_files = sorted(cli.data.glob('*.csv'))
+
+    for data_file in islice(csv_files, cli.node, None, cli.total_nodes):
+        segment_id = int(data_file.stem)
     
-    for run_dir in cli.top_level.iterdir():
-        ini = run_dir.joinpath('ini')
-        if not ini.is_file():
-            continue
-        config = ConfigParser()
-        config.read(str(ini))
-        
-        for data_file in islice(csv_files, cli.node, None, cli.total_nodes):
-            segment_id = int(data_file.stem)
+        for run_dir in cli.top_level.iterdir():
+            ini = run_dir.joinpath('ini')
+            if not ini.is_file():
+                continue
+
             entry = ledger.Entry(run_dir.stem, segment_id, event)
-            if entry not in records:
-                yield Args(segment_id, data_file, run_dir, entry, config, cli)
+            if entry in records:
+                continue
+
+            config = ConfigParser()
+            config.read(str(ini))
+
+            yield Args(segment_id, data_file, run_dir, entry, config, cli)
 
 ############################################################################
 
