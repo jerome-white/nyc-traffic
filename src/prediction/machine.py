@@ -37,8 +37,12 @@ class Machine:
     def stratify(self, folds, test_size=0.2):
         assert(0 < test_size < 1)
 
-        stratifications = StratifiedShuffleSplit(self.labels, n_iter=folds,
-                                                 test_size=test_size)
+        try:
+            stratifications = StratifiedShuffleSplit(self.labels, n_iter=folds,
+                                                     test_size=test_size)
+        except ValueError:
+            raise StopIteration
+
         for (train, test) in stratifications:
             yield Data(self.features[train], self.features[test],
                        self.labels[train], self.labels[test])
@@ -48,17 +52,18 @@ class Machine:
         for i in wanted.intersection(self.machines.keys()):
             factory = self.machines[i]
             instance = factory.construct(**factory.kwargs)
-            
+
             yield (factory.construct.__name__, instance)
 
     def predict(self, data, pred):
+        log = logger.getlogger()
+
         with warnings.catch_warnings():
             warnings.filterwarnings('error')
             for f in self.metrics:
                 try:
                     result = f(data.y_test, pred)
-                except (UndefinedMetricWarning, ValueError) as error:
-                    log = logger.getlogger()                    
+                except Exception as error:
                     log.warning(error)
                     result = None
                     
@@ -116,7 +121,7 @@ class Classifier(Machine):
     def confusion_matrix(self, y_true, y_pred):
         cm = sklearn.metrics.confusion_matrix(y_true, y_pred)
         cv = cm.flatten()
-        assert(len(cv) == self.no_labels ** 2)
+        # assert(len(cv) == self.no_labels ** 2)
 
         return ' '.join(map(str, cv))
 
