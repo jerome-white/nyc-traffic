@@ -47,6 +47,9 @@ class Segment:
         self.df = df.resample(freq).mean()
         self.name = name if name is not None else csv_file.stem
 
+    def __str__(self):
+        return self.name
+
     # def lag(self, with_respect_to, multiplier):
     #     lag = self.df.travel.mean() * multiplier
     #     self.df = self.df.shift(round(lag))
@@ -83,7 +86,7 @@ def observe(args):
         frequency = float(args.config['parameters']['intra-reporting'])
         if segment.frequency > frequency:
             msg = '{0}: non operational {1}'
-            log.error(msg.format(segment.name, segment.frequency))
+            log.error(msg.format(segment, segment.frequency))
             return (args.entry, False)
 
     #
@@ -94,7 +97,7 @@ def observe(args):
     raw_cluster = list(islice(network.bfs(segment.name), depth))
     if len(raw_cluster) != depth:
         msg = '{0}: network too shallow {1} {2}'
-        log.error(msg.format(segment.name, len(raw_cluster), depth))
+        log.error(msg.format(segment, len(raw_cluster), depth))
         return (args.entry, False)
 
     #
@@ -131,6 +134,10 @@ def observe(args):
             features = transform.select(df.loc[index])
             observations.append(features + [ int(label) ])
     log.debug('- {0}: slide'.format(args.segment))
+
+    if not observations:
+        log.error('{0}: No observations'.format(segment))
+        return (args.entry, False)
     
     #
     # Save observations to disk
@@ -183,10 +190,13 @@ def predict(args):
             d.update({ 'fold': i,
                        'classifier': name,
                        'frequency': segment.frequency,
-                       'segment': segment.name,
+                       'segment': str(segment),
             })
             predictions.append(d)
     log.debug('- {0}: stratify'.format(args.segment))
+
+    if not predictions:
+        return (args.entry, False)
     
     #
     # Save results to disk
