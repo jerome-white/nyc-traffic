@@ -199,16 +199,15 @@ def predict(args):
     return (args.entry, True)
 
 def enumerator(records, event, cli):
+    csv_files = sorted(cli.data.glob('*.csv'))
+    
     for run_dir in cli.top_level.iterdir():
         ini = run_dir.joinpath('ini')
         if not ini.is_file():
             continue
-
         config = ConfigParser()
         config.read(str(ini))
-
-        csv_files = sorted(cli.data.glob('*.csv'))
-
+        
         for data_file in islice(csv_files, cli.node, None, cli.total_nodes):
             segment_id = int(data_file.stem)
             entry = ledger.Entry(run_dir.stem, segment_id, event)
