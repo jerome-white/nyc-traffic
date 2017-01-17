@@ -1,5 +1,5 @@
 import warnings
-import operator
+import operator as op
 
 import numpy as np
 import scipy.constants as constant
@@ -11,10 +11,21 @@ Selector = lambda x: {
 }[x]
 
 class ChangePoint:
-    def __init__(self, threshold, categories=2):
+    def __init__(self, threshold):
         self.threshold = threshold
-        self.categories = categories
-    
+
+    def f(self, seq, window, aggregate):
+        if len(seq) != len(window):
+            return np.nan
+
+        segments = []
+        for i in window.split(seq):
+            if np.isnan(i).any():
+                return np.nan
+            segments.append(aggregate(i))
+
+        return self.classify(window.offset, *segments)
+
     def classify(self, duration, before, after):
         '''
         duration: minutes
@@ -23,13 +34,13 @@ class ChangePoint:
         
         if self.threshold < 0:
             args = [ before, after ]
-            f = operator.le
+            rel = op.le
         else:
             args = [ after, before ]
-            f = operator.gt
+            rel = op.gt
         diff = self.change(duration, *args)
 
-        return f(diff, self.threshold)
+        return rel(diff, self.threshold)
     
     def change(self, duration, before, after):
         raise NotImplementedError()
@@ -42,19 +53,13 @@ class Acceleration(ChangePoint):
     
         return acceleration / constant.g
 
-    # def compare(measurement, threshold, direction):
-    #     allowable = measurement <= threshold
-        
-    #     return allowable if direction else not allowable
-
-
 class Percentage(ChangePoint):
     def change(self, duration, before, after):
         return (after - before) / before
 
 class Derivative(ChangePoint):
-    def __init__(self, threshold, categories=2, order=1):
-        super().__init__(threshold, categories)
+    def __init__(self, threshold, order=1):
+        super().__init__(threshold)
         self.order = order
 
     def change(self, duration, before, after):
