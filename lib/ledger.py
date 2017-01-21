@@ -1,7 +1,6 @@
 import csv
-from collections import namedtuple
-
-Entry = namedtuple('Entry', 'ini, segment, event')
+import inspect
+import operator as op
 
 class Ledger(dict):
     def __enter__(self):
@@ -9,26 +8,24 @@ class Ledger(dict):
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.fp.close()
-        
-    def __init__(self, ledger, node):
+
+    def __init__(self, ledger, segment, entry_factory):
         super().__init__()
         
         if ledger.is_dir():
             for i in ledger.glob('*.csv'):
                 with i.open() as fp:
                     reader = csv.reader(fp)
-                    for (ini, segment, event, status) in reader:
-                        entry = Entry(ini, int(segment), event)
+                    for (*data, status) in reader:
+                        entry = entry_factory(*data)
                         self[entry] = int(status)
         else:
             ledger.mkdir(parents=True, exist_ok=True)
 
-        output = ledger.joinpath(str(node)).with_suffix('.csv')
-        self.fp = output.open('a')
+        output = ledger.joinpath(str(segment)).with_suffix('.csv')
+        self.fp = output.open('a', buffering=1)
         self.writer = csv.writer(self.fp)
-        
-    def record(self, entry, result):
+
+    def record(self, entry, result=True):
         self[entry] = int(result)
-        
         self.writer.writerow(list(entry) + [ self[entry] ])
-        self.fp.flush()

@@ -7,11 +7,13 @@ Selector = lambda x: {
 
 class FeatureEngineer:
     def select(self, df):
-        assert(not df.isnull().values.any())
+        if df.isnull().values.any():
+            raise ValueError()
+
         return self._select(df).ravel().tolist()
 
     def select_(self, df):
-        raise NotImplementedError
+        raise NotImplementedError()
 
 class Simple(FeatureEngineer):
     def _select(self, df):
