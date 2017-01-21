@@ -1,3 +1,4 @@
+import operator as op
 import itertools
 from pathlib import Path
 from tempfile import mkdtemp
@@ -7,11 +8,12 @@ from multiprocessing import Pool
 
 from lib import logger
 from lib import cpoint
+from lib.window import Window
 from lib.ledger import Ledger
 from lib.segment import Segment
 
 Entry = namedtuple('Entry', 'segment, observation, offset')
-Args = namedtuple('Args', 'entry, output')
+Args = namedtuple('Args', 'entry, classifier, output')
 
 #############################################################################
 
@@ -25,12 +27,13 @@ def count(stop=None, start=1, inclusive=True):
 def func(args):
     log = logger.getlogger()
     
-    window = Window(args.observation, args.offset)
+    window = Window(args.entry.observation, args.entry.offset)
     classifier = cpoint.Selector(args.classifier)
-    segment = Segment(args.segment)
+    segment = Segment(args.entry.segment)
     log.info(segment)
 
-    series = segment.roller(classifier.classify, args=[ window ])
+    kwargs = { 'window': window }
+    series = segment.roller(window).apply(classifier.classify, kwargs=kwargs)
 
     win = [ '{0:02d}'.format(x) for x in (window.observation, window.offset) ]
     path = Path(args.output, *win, str(segment))
@@ -41,14 +44,14 @@ def func(args):
     return args.entry
 
 def enumerator(records, args):
-    csv_files = sorted(args.data.glob('*.csv'))
+    data = sorted(args.data.glob('*.csv'))
 
-    for segment in islice(csv_files, args.node, None, args.total_nodes):
+    for segment in itertools.islice(data, args.node, None, args.total_nodes):
         for observation in count(args.max_observations):
             for offset in count(args.max_offset):
                 entry = Entry(segment, observation, offset)
                 if entry not in records:
-                    yield Args(entry, args.output)
+                    yield Args(entry, args.classifier, args.output)
 
 ############################################################################
 
@@ -68,8 +71,8 @@ log = logger.getlogger(True)
 
 if not args.ledger:
     tmp = mkdtemp(suffix='-ledger')
-    log.info('Initialised ledger directory: '.format(tmp.name))
-    args.ledger = Path(tmp.name)
+    log.info('Initialised ledger directory: '.format(tmp))
+    args.ledger = Path(tmp)
 
 log.info('|> {0}/{1}'.format(args.node, args.total_nodes))
 with Ledger(args.ledger, args.node, Entry) as records:
