@@ -11,10 +11,10 @@ class Segment:
         
         self.frequency = df.index.to_series().diff().mean().total_seconds()
         self.df = df.resample(freq).mean()
-        self.name = name if name is not None else csv_file.stem
+        self.name = csv_file.stem if name is None else name
 
     def __str__(self):
-        return self.name
+        return str(self.name)
 
     def roller(self, window, column='speed'):
         return self.df[column].rolling(len(window), min_periods=0)
