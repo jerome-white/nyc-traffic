@@ -122,6 +122,8 @@ def predict(args):
     if not results.exists():
         return (args.entry, False)
     observations = np.loadtxt(str(results), delimiter=',')
+    if observations.ndim < 2:
+        return (args.entry, False)
     classifier = MachineSelector(machine_opts['model'])(observations)
 
     segment = Segment(args.data, name=args.segment)
