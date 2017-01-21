@@ -11,10 +11,10 @@ Selector = lambda x: {
 }[x]
 
 class ChangePoint:
-    def __init__(self, threshold):
-        self.threshold = threshold
+    def __init__(self, threshold, relation=op.le):
+        self.isjam = lambda x: relation(x, threshold)
 
-    def f(self, seq, window, aggregate):
+    def classify(self, seq, window, aggregate=np.mean):
         if len(seq) != len(window):
             return np.nan
 
@@ -23,26 +23,15 @@ class ChangePoint:
             if np.isnan(i).any():
                 return np.nan
             segments.append(aggregate(i))
+        diff = self.change(window.offset, *segments)
 
-        return self.classify(window.offset, *segments)
+        return self.isjam(diff)
 
-    def classify(self, duration, before, after):
+    def change(self, duration, before, after):
         '''
         duration: minutes
         before, after: miles per hour
         '''
-        
-        if self.threshold < 0:
-            args = [ before, after ]
-            rel = op.le
-        else:
-            args = [ after, before ]
-            rel = op.gt
-        diff = self.change(duration, *args)
-
-        return rel(diff, self.threshold)
-    
-    def change(self, duration, before, after):
         raise NotImplementedError()
 
 class Acceleration(ChangePoint):
