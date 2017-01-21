@@ -19,6 +19,7 @@ from lib.features import Selector as FeatureSelector
 import ledger
 from machine import Selector as MachineSelector
 
+Entry = namedtuple('Entry', 'ini, segment, event')
 Args = namedtuple('Args', 'segment, data, root, entry, config, cli')
 
 class Writer:
