@@ -1,5 +1,4 @@
 import itertools
-import operator as op
 from pathlib import Path
 from tempfile import mkdtemp
 from argparse import ArgumentParser
@@ -17,26 +16,23 @@ Entry = namedtuple('Entry', 'segment, observation, offset')
 #############################################################################
 
 def count(stop=None, start=1, inclusive=True):
-    rel = op.gt if inclusive else op.ge
-    for i in itertools.count(start):
-        if stop and rel(i, stop):
-            break
-        yield i
+    if inclusive:
+        stop += 1
+    yield from range(start, stop)
 
 def func(args):
     (opts, entry) = args
 
     log = logger.getlogger()
-    
-    segment = Segment(entry.segment)
-    log.info(segment)
+    log.info(entry)
 
+    segment = Segment(entry.segment)
     window = Window(entry.observation, entry.offset)
     classifier = cpoint.Selector(opts.classifier)(opts.alpha)
     series = segment.roller(window).apply(classifier.classify, args=(window, ))
 
     path = Path(opts.output, window.topath(), str(segment))
-    path.mkdir(parents=True, exists_ok=True)
+    path.mkdir(parents=True, exist_ok=True)
     with path.with_suffix('.csv').open('w') as fp:
         series.to_csv(fp)
 
@@ -77,5 +73,5 @@ log.info('|> {0}/{1}'.format(args.node, args.total_nodes))
 with Ledger(args.ledger, args.node, Entry) as records:
     with Pool() as pool:
         for i in pool.imap_unordered(func, enumerator(records, args)):
-            records.record(*i)
+            records.record(i)
 log.info('|< {0}/{1}'.format(args.node, args.total_nodes))
