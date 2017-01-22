@@ -1,5 +1,5 @@
-import operator as op
 import itertools
+import operator as op
 from pathlib import Path
 from tempfile import mkdtemp
 from argparse import ArgumentParser
@@ -13,7 +13,6 @@ from lib.ledger import Ledger
 from lib.segment import Segment
 
 Entry = namedtuple('Entry', 'segment, observation, offset')
-Args = namedtuple('Args', 'entry, classifier, output')
 
 #############################################################################
 
@@ -25,23 +24,23 @@ def count(stop=None, start=1, inclusive=True):
         yield i
 
 def func(args):
+    (opts, entry) = args
+
     log = logger.getlogger()
     
-    window = Window(args.entry.observation, args.entry.offset)
-    classifier = cpoint.Selector(args.classifier)
-    segment = Segment(args.entry.segment)
+    segment = Segment(entry.segment)
     log.info(segment)
 
-    kwargs = { 'window': window }
-    series = segment.roller(window).apply(classifier.classify, kwargs=kwargs)
+    window = Window(entry.observation, entry.offset)
+    classifier = cpoint.Selector(opts.classifier)(opts.alpha)
+    series = segment.roller(window).apply(classifier.classify, args=(window, ))
 
-    win = [ '{0:02d}'.format(x) for x in (window.observation, window.offset) ]
-    path = Path(args.output, *win, str(segment))
+    path = Path(opts.output, window.topath(), str(segment))
     path.mkdir(parents=True, exists_ok=True)
     with path.with_suffix('.csv').open('w') as fp:
         series.to_csv(fp)
 
-    return args.entry
+    return entry
 
 def enumerator(records, args):
     data = sorted(args.data.glob('*.csv'))
@@ -51,7 +50,7 @@ def enumerator(records, args):
             for offset in count(args.max_offset):
                 entry = Entry(segment, observation, offset)
                 if entry not in records:
-                    yield Args(entry, args.classifier, args.output)
+                    yield (args, entry)
 
 ############################################################################
 
