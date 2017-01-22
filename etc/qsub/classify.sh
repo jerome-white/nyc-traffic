@@ -6,7 +6,7 @@ while getopts "n:d:w:o:l:h" OPTION; do
 	d) duration=$OPTARG ;;
 	w) observations=$OPTARG ;;
 	o) offset=$OPTARG ;;
-	l) ledger="--ledger $OPTARG" ;;
+	l) ledger=$OPTARG ;;
 	h)
 	    cat<<EOF
 $0 [options]
@@ -19,13 +19,18 @@ EOF
     esac
 done
 
+if [ ! $ledger ]; then
+    ledger=`mktemp --directory`
+fi
+
 for i in `seq $nodes`; do
     tmp=`mktemp`
     ( >&2 echo "[ `date` ] $i $tmp" )
 cat <<EOF > $tmp
-python $HOME/src/nyc-traffic/src/characterise/classify.py $ledger \
+python $HOME/src/nyc-traffic/src/characterise/classify.py \
   --data $SCRATCH/nyc/data \
   --output $SCRATCH/nyc/classify \
+  --ledger $ledger
   --max-observations $observations \
   --max-offset $offset \
   --node `expr $i - 1` \
