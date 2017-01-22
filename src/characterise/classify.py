@@ -1,6 +1,6 @@
+import tempfile
 import itertools
 from pathlib import Path
-from tempfile import mkdtemp
 from argparse import ArgumentParser
 from collections import namedtuple
 from multiprocessing import Pool
@@ -24,7 +24,7 @@ def func(args):
     (opts, entry) = args
 
     log = logger.getlogger()
-    log.info(entry)
+    log.info(' '.join(map(str, entry)))
 
     segment = Segment(entry.segment)
     window = Window(entry.observation, entry.offset)
@@ -32,7 +32,7 @@ def func(args):
     series = segment.roller(window).apply(classifier.classify, args=(window, ))
 
     path = Path(opts.output, window.topath(), str(segment))
-    path.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
     with path.with_suffix('.csv').open('w') as fp:
         series.to_csv(fp)
 
@@ -64,13 +64,14 @@ args = arguments.parse_args()
 
 log = logger.getlogger(True)
 
-if not args.ledger:
-    tmp = mkdtemp(suffix='-ledger')
-    log.info('Initialised ledger directory: '.format(tmp))
-    args.ledger = Path(tmp)
+if args.ledger:
+    ledger = args.ledger
+else:
+    ledger = Path(tempfile.mkdtemp(suffix='-ledger'))
+    log.info('Initialised ledger directory: '.format(str(ledger)))
 
 log.info('|> {0}/{1}'.format(args.node, args.total_nodes))
-with Ledger(args.ledger, args.node, Entry) as records:
+with Ledger(ledger, args.node, Entry) as records:
     with Pool() as pool:
         for i in pool.imap_unordered(func, enumerator(records, args)):
             records.record(i)
