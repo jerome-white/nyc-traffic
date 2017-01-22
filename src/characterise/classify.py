@@ -68,7 +68,7 @@ if args.ledger:
     ledger = args.ledger
 else:
     ledger = Path(tempfile.mkdtemp(suffix='-ledger'))
-    log.info('Initialised ledger directory: '.format(str(ledger)))
+    log.info('Initialised ledger directory: {0}'.format(str(ledger)))
 
 log.info('|> {0}/{1}'.format(args.node, args.total_nodes))
 with Ledger(ledger, args.node, Entry) as records:
