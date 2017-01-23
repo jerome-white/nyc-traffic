@@ -34,7 +34,7 @@ def func(args):
     path = Path(opts.output, window.topath(), str(segment))
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.with_suffix('.csv').open('w') as fp:
-        series.to_csv(fp)
+        series.dropna().to_csv(fp)
 
     return entry
 
