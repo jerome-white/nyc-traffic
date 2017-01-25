@@ -1,3 +1,8 @@
+#
+# Plots the output of frequency characterisation
+# (src/characterise/cluster.py)
+#
+
 import numpy as np
 import pandas as pd
 import seaborn as sns
