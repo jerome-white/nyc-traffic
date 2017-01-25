@@ -1,37 +1,19 @@
 # import matplotlib
 # matplotlib.style.use('ggplot')
 
+from pathlib import Path
+from argparse import ArgumentParser
+from multiprocessing import Pool
+
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from lib import db
-from lib import cli
 from lib import logger
-from pathlib import Path
-from multiprocessing import Pool
-from multiprocessing import cpu_count
-
-def mkargs(source, target, frequencies):
-    heading = [ 'Observation', 'Prediction' ]
-    
-    for observation in source.iterdir():
-        if observation.is_dir():
-            for prediction in observation.iterdir():
-                if prediction.is_dir():
-                    subdir = Path(observation.stem, prediction.stem)
-                    
-                    title = zip(heading, map(int, subdir.parts))
-                    title = ' '.join([ ': '.join(map(str, x)) for x in title ])
-                    
-                    dest = target.joinpath(subdir)
-                    dest.mkdir(parents=True, exist_ok=True)
-
-                    yield (prediction, dest, frequencies, title)
 
 def boxplot(**kwargs):
-    sns.boxplot(palette="PRGn", whis=np.inf, **kwargs)
+    sns.boxplot(palette='PRGn', whis=np.inf, **kwargs)
     sns.stripplot(jitter=True, size=3, color='.3', linewidth=0, **kwargs)
 
 def factorplot(**kwargs):
@@ -43,7 +25,7 @@ def plot(args):
     log = logger.getlogger()
     log.info('o: {0} p: {1}'.format(*map(int, source.parts[-2:])))
     
-    data = [ pd.read_pickle(str(x)) for x in source.glob('*.pkl') ]
+    data = [ pd.read_csv(str(x)) for x in source.glob('*.csv') ]
     df = pd.concat(data, axis=1)
 
     columns = [ 'Hour', 'Segment', 'Average number of jams' ]
@@ -78,10 +60,25 @@ def plot(args):
             plt.gcf().savefig(str(dest))
             plt.close()
 
-args = cli.CommandLine(cli.optsfile('characterisation-plot')).args
-source = Path(args.source)
-target = Path(args.target)
+def mkargs(source, target, frequencies):
+    heading = [ 'Observation', 'Prediction' ]
+    
+    for observation in source.iterdir():
+        for prediction in observation.iterdir():
+            subdir = Path(observation.stem, prediction.stem)
+                    
+            title = zip(heading, map(int, subdir.parts))
+            title = ' '.join([ ': '.join(map(str, x)) for x in title ])
+                    
+            dest = target.joinpath(subdir)
+            dest.mkdir(parents=True, exist_ok=True)
 
+            yield (prediction, dest, frequencies, title)
+
+arguments = ArgumentParser()
+arguments.add_argument('--data', type=Path)
+arguments.add_argument('--output', type=Path)
+args = arguments.parse_args()
 logger.getlogger(True)
 
 with Pool(cpu_count() // 2, maxtasksperchild=1) as pool:
