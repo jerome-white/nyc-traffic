@@ -5,6 +5,8 @@ from argparse import ArgumentParser
 from collections import namedtuple
 from multiprocessing import Pool
 
+import numpy as np
+
 from lib import logger
 from lib import cpoint
 from lib.window import Window
@@ -12,41 +14,39 @@ from lib.ledger import Ledger
 from lib.segment import Segment
 
 Entry = namedtuple('Entry', 'segment, observation, offset')
+Options = namedtuple('Options', 'segment, ledger, args')
 
 #############################################################################
 
-def count(stop=None, start=1, inclusive=True):
-    if inclusive:
-        stop += 1
-    yield from range(start, stop)
+def dealer(args):
+    counter = lambda x: map(int, np.linspace(1, x, num=x))
 
-def func(args):
-    (opts, entry) = args
+    with Ledger(args.ledger, args.node, Entry) as ledger:
+        for observation in counter(args.max_observations):
+            for offset in counter(args.max_offset):
+                entry = Entry(args.node, observation, offset)
+                if entry not in ledger:
+                    yield Window(observation, offset)
+                    ledger.record(entry)
+
+def func(opts):
+    (segment, args) = opts
 
     log = logger.getlogger()
-    log.info(' '.join(map(str, entry)))
 
-    segment = Segment(entry.segment)
-    window = Window(entry.observation, entry.offset)
-    classifier = cpoint.Selector(opts.classifier)(opts.alpha)
-    series = segment.roller(window).apply(classifier.classify, args=(window, ))
+    segment = Segment(segment)
+    classifier = cpoint.Selector(args.classifier)(args.alpha)
 
-    path = Path(opts.output, window.topath(), str(segment))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.with_suffix('.csv').open('w') as fp:
-        series.dropna().to_csv(fp)
+    for window in dealer(args):
+        log.info('s: {0}, w: {1}'.format(segment, window))
 
-    return entry
+        roller = segment.roller(window)
+        series = roller.apply(classifier.classify, args=(window, ))
 
-def enumerator(records, args):
-    data = sorted(args.data.glob('*.csv'))
-
-    for segment in itertools.islice(data, args.node, None, args.total_nodes):
-        for observation in count(args.max_observations):
-            for offset in count(args.max_offset):
-                entry = Entry(segment, observation, offset)
-                if entry not in records:
-                    yield (args, entry)
+        path = Path(args.output, window.topath(), str(segment))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.with_suffix('.csv').open('w') as fp:
+            series.dropna().to_csv(fp)
 
 ############################################################################
 
@@ -64,15 +64,10 @@ args = arguments.parse_args()
 
 log = logger.getlogger(True)
 
-if args.ledger:
-    ledger = args.ledger
-else:
-    ledger = Path(tempfile.mkdtemp(suffix='-ledger'))
-    log.info('Initialised ledger directory: {0}'.format(str(ledger)))
-
 log.info('|> {0}/{1}'.format(args.node, args.total_nodes))
-with Ledger(ledger, args.node, Entry) as records:
-    with Pool() as pool:
-        for i in pool.imap_unordered(func, enumerator(records, args)):
-            records.record(i)
+with Pool() as pool:
+    data = sorted(args.data.glob('*.csv'))
+    segments = itertools.islice(data, args.node, None, args.total_nodes)
+    for i in pool.imap_unordered(func, map(lambda x: (x, args), segments)):
+        log.info('s: {0} finished'.format(segment))
 log.info('|< {0}/{1}'.format(args.node, args.total_nodes))
