@@ -30,11 +30,11 @@ def dealer(args):
                     ledger.record(entry)
 
 def func(opts):
-    (segment, args) = opts
+    (sid, args) = opts
 
     log = logger.getlogger()
 
-    segment = Segment(segment)
+    segment = Segment(sid)
     classifier = cpoint.Selector(args.classifier)(args.alpha)
 
     for window in dealer(args):
@@ -47,6 +47,8 @@ def func(opts):
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.with_suffix('.csv').open('w') as fp:
             series.dropna().to_csv(fp)
+
+    return str(segment)
 
 ############################################################################
 
@@ -69,5 +71,5 @@ with Pool() as pool:
     data = sorted(args.data.glob('*.csv'))
     segments = itertools.islice(data, args.node, None, args.total_nodes)
     for i in pool.imap_unordered(func, map(lambda x: (x, args), segments)):
-        log.info('s: {0} finished'.format(segment))
+        log.info('s: {0} finished'.format(i))
 log.info('|< {0}/{1}'.format(args.node, args.total_nodes))
