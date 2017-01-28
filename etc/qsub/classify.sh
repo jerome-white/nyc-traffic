@@ -22,15 +22,16 @@ done
 if [ ! $ledger ]; then
     ledger=`mktemp --directory`
 fi
+output=$SCRATCH/nyc/classify/`date +'%Y_%m%d_%H%M%S'`
 
 for i in `seq $nodes`; do
     tmp=`mktemp`
     ( >&2 echo "[ `date` ] $i $tmp" )
 cat <<EOF > $tmp
-python $HOME/src/nyc-traffic/src/characterise/classify.py \
+python $HOME/src/nyc-traffic/src/characterise/frequency.py \
   --data $SCRATCH/nyc/data \
-  --output $SCRATCH/nyc/classify \
-  --ledger $ledger
+  --output $output \
+  --ledger $ledger \
   --max-observations $observations \
   --max-offset $offset \
   --node `expr $i - 1` \
