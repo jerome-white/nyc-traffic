@@ -1,12 +1,14 @@
 #!/bin/bash
 
-while getopts "n:d:w:o:l:h" OPTION; do
+output=$SCRATCH/nyc/classify/`date +'%Y_%m%d_%H%M%S'`
+while getopts "n:d:w:o:l:e:h" OPTION; do
     case $OPTION in
         n) nodes=$OPTARG ;;
 	d) duration=$OPTARG ;;
 	w) observations=$OPTARG ;;
 	o) offset=$OPTARG ;;
 	l) ledger=$OPTARG ;;
+	e) output=$OPTARG ;;
 	h)
 	    cat<<EOF
 $0 [options]
@@ -22,7 +24,6 @@ done
 if [ ! $ledger ]; then
     ledger=`mktemp --directory`
 fi
-output=$SCRATCH/nyc/classify/`date +'%Y_%m%d_%H%M%S'`
 
 for i in `seq $nodes`; do
     tmp=`mktemp`
