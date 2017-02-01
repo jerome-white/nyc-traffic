@@ -33,8 +33,9 @@ args = arguments.parse_args()
 log = logger.getlogger(True)
 
 columns = [ 'observation', 'offset', 'mean' ]
-with Pool() as pool:
+with Pool(maxtasksperchild=1) as pool:
     df = pd.DataFrame.from_records(pool.imap_unordered(func, walk(args.data)),
                                    columns=columns)
-ax = sns.heatmap(df.pivot(*columns), annot=True, fmt='.0f')
+df.sort_values(by=columns, inplace=True)
+ax = sns.heatmap(df, annot=True, fmt='.0f')
 ax.figure.savefig(str(args.output))
