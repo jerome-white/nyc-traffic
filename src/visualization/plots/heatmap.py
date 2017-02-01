@@ -7,6 +7,7 @@ import pandas as pd
 import seaborn as sns
 
 from lib import logger
+from lib.window import Window
 
 def walk(source):
     for i in source.iterdir():
@@ -18,8 +19,8 @@ def func(args):
 
     window = Window.from_path(args)
 
-    f = lambda x: pd.read_csv(str(x), index_col=0, parse_dates)
-    df = pd.concat(map(f, source.glob('*.csv')), axis=1)
+    f = lambda x: pd.read_csv(str(x), index_col=0, parse_dates=True)
+    df = pd.concat(map(f, args.glob('*.csv')), axis=1)
     df = df.resample('H').sum()
     
     return (window.observation, window.offset, df.mean().mean())
