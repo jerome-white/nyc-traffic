@@ -22,6 +22,12 @@ class Window:
     def __str__(self):
         return str(self.topath())
 
+    @classmethod
+    def from_path(cls, path):
+        components = map(int, path.parts[-2:])
+
+        return cls(*components)
+    
     def topath(self):
         parts = (self.observation, self.offset)
 
