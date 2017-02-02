@@ -31,7 +31,7 @@ log = logger.getlogger(True)
 columns = [ 'observation', 'offset', 'mean' ]
 with Pool(maxtasksperchild=1) as pool:
     data = pool.imap_unordered(func, args.data.glob('**/*.csv'))
-    df = pd.DataFrame.from_records(data, columns=columns).dropna()
+    df = pd.DataFrame.from_records(data, columns=columns)
 
 df.sort_values(by=columns, inplace=True)
 ax = sns.heatmap(df.pivot(*columns), annot=True, fmt='.0f')
