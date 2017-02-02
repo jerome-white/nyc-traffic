@@ -9,21 +9,17 @@ import seaborn as sns
 from lib import logger
 from lib.window import Window
 
-def walk(source):
-    for i in source.iterdir():
-        yield from i.iterdir()
-
 def func(args):
     log = logger.getlogger()
     log.debug(args)
 
-    window = Window.from_path(args)
+    window = Window.from_path(args.parent)
 
-    f = lambda x: pd.read_csv(str(x), index_col=0, parse_dates=True)
-    df = pd.concat(map(f, args.glob('*.csv')), axis=1)
-    df = df.resample('H').sum()
+    srs = pd.read_csv(str(args), index_col=0, parse_dates=True, squeeze=True,
+                      header=None)
+    srs = srs.resample('H').sum()
     
-    return (window.observation, window.offset, df.mean().mean())
+    return (window.observation, window.offset, srs.mean())
 
 arguments = ArgumentParser()
 arguments.add_argument('--data', type=Path)
@@ -34,8 +30,9 @@ log = logger.getlogger(True)
 
 columns = [ 'observation', 'offset', 'mean' ]
 with Pool(maxtasksperchild=1) as pool:
-    df = pd.DataFrame.from_records(pool.imap_unordered(func, walk(args.data)),
-                                   columns=columns)
+    data = pool.imap_unordered(func, args.data.glob('**/*.csv'))
+    df = pd.DataFrame.from_records(data, columns=columns).dropna()
+
 df.sort_values(by=columns, inplace=True)
-ax = sns.heatmap(df, annot=True, fmt='.0f')
+ax = sns.heatmap(df.pivot(*columns), annot=True, fmt='.0f')
 ax.figure.savefig(str(args.output))
