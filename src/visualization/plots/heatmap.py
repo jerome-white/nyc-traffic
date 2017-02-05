@@ -10,30 +10,35 @@ from lib import logger
 from lib.window import Window
 
 def func(args):
+    (data, freq) = args
+
+    window = Window.from_path(data.parent)
+
     log = logger.getlogger()
-    log.info(args)
+    log.info('{0} {1}'.format(window, data.stem))
 
-    window = Window.from_path(args.parent)
-
-    srs = pd.read_csv(str(args),
+    srs = pd.read_csv(str(data),
                       index_col=0,
                       parse_dates=True,
                       squeeze=True,
                       header=None)
-    srs = srs.resample('H').sum()
+    srs = srs.resample(freq).sum()
 
     return (window.observation, window.offset, srs.mean())
 
 arguments = ArgumentParser()
 arguments.add_argument('--data', type=Path)
 arguments.add_argument('--output', type=Path)
+# http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
+arguments.add_argument('--frequency', default='D')
 args = arguments.parse_args()
 
 log = logger.getlogger(True)
 
 columns = [ 'observation', 'offset', 'mean' ]
-with Pool(maxtasksperchild=1) as pool:
-    data = pool.imap_unordered(func, args.data.glob('**/*.csv'))
+with Pool() as pool:
+    iterable = map(lambda x: (x, args.frequency), args.data.glob('**/*.csv'))
+    data = pool.imap_unordered(func, iterable)
     df = pd.DataFrame.from_records(data, columns=columns)
 groups = df.groupby(by=columns[:-1])
 table = groups.mean().unstack()
