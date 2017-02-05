@@ -34,6 +34,4 @@ class Window:
         return Path(*[ '{0:02d}'.format(x) for x in parts ])
 
     def split(self, seq):
-        for i in (0, self.offset):
-            j = i + self.observation
-            yield seq[i:j]
+        yield from [ seq[:self.observation], seq[-self.observation:] ]
