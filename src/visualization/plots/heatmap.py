@@ -11,14 +11,17 @@ from lib.window import Window
 
 def func(args):
     log = logger.getlogger()
-    log.debug(args)
+    log.info(args)
 
     window = Window.from_path(args.parent)
 
-    srs = pd.read_csv(str(args), index_col=0, parse_dates=True, squeeze=True,
+    srs = pd.read_csv(str(args),
+                      index_col=0,
+                      parse_dates=True,
+                      squeeze=True,
                       header=None)
     srs = srs.resample('H').sum()
-    
+
     return (window.observation, window.offset, srs.mean())
 
 arguments = ArgumentParser()
@@ -32,7 +35,9 @@ columns = [ 'observation', 'offset', 'mean' ]
 with Pool(maxtasksperchild=1) as pool:
     data = pool.imap_unordered(func, args.data.glob('**/*.csv'))
     df = pd.DataFrame.from_records(data, columns=columns)
+groups = df.groupby(by=columns[:-1])
+table = groups.mean().unstack()
+table.columns = table.columns.droplevel() # http://stackoverflow.com/a/22233719
 
-df.sort_values(by=columns, inplace=True)
-ax = sns.heatmap(df.pivot(*columns), annot=True, fmt='.0f')
+ax = sns.heatmap(table, annot=True, fmt='.0f')
 ax.figure.savefig(str(args.output))
