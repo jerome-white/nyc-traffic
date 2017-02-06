@@ -35,18 +35,24 @@ def func(opts):
     log = logger.getlogger()
 
     segment = Segment(sid)
+    if segment.frequency > args.frequency:
+        log.error('{0}: too sparse {1}'.format(segment, segment.frequency))
+        return
+
     classifier = cpoint.Selector(args.classifier)(args.alpha)
 
     for window in dealer(args):
-        log.info('s: {0}, w: {1}'.format(segment, window))
+        log.info('{0} {1}'.format(window, segment))
 
         roller = segment.roller(window)
-        series = roller.apply(classifier.classify, args=(window, ))
+        series = roller.apply(classifier.classify, args=(window, )).dropna()
+        if series.empty:
+            continue
 
         path = Path(args.output, window.topath(), str(segment))
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.with_suffix('.csv').open('w') as fp:
-            series.dropna().to_csv(fp)
+            series.to_csv(fp)
 
     return str(segment)
 
@@ -57,6 +63,7 @@ arguments.add_argument('--data', type=Path)
 arguments.add_argument('--ledger', type=Path)
 arguments.add_argument('--output', type=Path)
 arguments.add_argument('--alpha', type=float, default=-0.002)
+arguments.add_argument('--frequency', type=float, default=np.inf)
 arguments.add_argument('--classifier', default='acceleration')
 arguments.add_argument('--max-observations', type=int)
 arguments.add_argument('--max-offset', type=int)
@@ -70,6 +77,7 @@ log.info('|> {0}/{1}'.format(args.node, args.total_nodes))
 with Pool() as pool:
     data = sorted(args.data.glob('*.csv'))
     segments = itertools.islice(data, args.node, None, args.total_nodes)
-    for i in pool.imap_unordered(func, map(lambda x: (x, args), segments)):
+    iterable = map(lambda x: (x, args), segments)
+    for i in filter(None, pool.imap_unordered(func, iterable)):
         log.info('s: {0} finished'.format(i))
 log.info('|< {0}/{1}'.format(args.node, args.total_nodes))
