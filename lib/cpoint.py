@@ -11,7 +11,7 @@ Selector = lambda x: {
 }[x]
 
 class ChangePoint:
-    def __init__(self, threshold, relation=op.le):
+    def __init__(self, threshold, relation=op.gt):
         self.isjam = lambda x: relation(x, threshold)
 
     def classify(self, seq, window, aggregate=np.mean):
@@ -36,7 +36,7 @@ class ChangePoint:
 
 class Acceleration(ChangePoint):
     def change(self, duration, before, after):
-        meters = (after - before) * constant.mile # miles to meters
+        meters = (before - after) * constant.mile # miles to meters
         seconds = duration * constant.minute # minutes to seconds
         acceleration = meters / constant.hour / seconds
     
