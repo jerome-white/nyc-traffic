@@ -1,7 +1,7 @@
 #!/bin/bash
 
 output=$SCRATCH/nyc/classify/`date +'%Y_%m%d_%H%M%S'`
-while getopts "n:d:w:o:l:e:h" OPTION; do
+while getopts "a:n:d:w:o:l:e:h" OPTION; do
     case $OPTION in
         n) nodes=$OPTARG ;;
 	d) duration=$OPTARG ;;
@@ -9,6 +9,7 @@ while getopts "n:d:w:o:l:e:h" OPTION; do
 	o) offset=$OPTARG ;;
 	l) ledger=$OPTARG ;;
 	e) output=$OPTARG ;;
+	a) alpha=$OPTARG ;;
 	h)
 	    cat<<EOF
 $0 [options]
@@ -21,6 +22,11 @@ EOF
     esac
 done
 
+if [ $alpha ]; then
+    output=$output-$alpha
+    alpha="--alpha $alpha"
+fi
+
 if [ ! $ledger ]; then
     ledger=`mktemp --directory`
 fi
@@ -29,7 +35,7 @@ for i in `seq $nodes`; do
     tmp=`mktemp`
     ( >&2 echo "[ `date` ] $i $tmp" )
 cat <<EOF > $tmp
-python $HOME/src/nyc-traffic/src/characterise/frequency.py \
+python $HOME/src/nyc-traffic/src/characterise/frequency.py $alpha \
   --data $SCRATCH/nyc/data \
   --output $output \
   --ledger $ledger \
@@ -41,8 +47,6 @@ EOF
     qsub \
 	-j oe \
 	-l nodes=1:ppn=20,mem=60GB,walltime=${duration}:00:00 \
-	-m abe \
-	-M jsw7@nyu.edu \
 	-N nyc-classify \
 	-V \
 	$tmp
