@@ -1,7 +1,7 @@
 #!/bin/bash
 
 output=$SCRATCH/nyc/classify/`date +'%Y_%m%d_%H%M%S'`
-while getopts "a:n:d:w:o:l:e:h" OPTION; do
+while getopts "a:n:d:w:o:l:e:f:h" OPTION; do
     case $OPTION in
         n) nodes=$OPTARG ;;
 	d) duration=$OPTARG ;;
@@ -10,6 +10,7 @@ while getopts "a:n:d:w:o:l:e:h" OPTION; do
 	l) ledger=$OPTARG ;;
 	e) output=$OPTARG ;;
 	a) alpha=$OPTARG ;;
+	f) frequency="--frequency $OPTARG" ;;
 	h)
 	    cat<<EOF
 $0 [options]
@@ -35,7 +36,7 @@ for i in `seq $nodes`; do
     tmp=`mktemp`
     ( >&2 echo "[ `date` ] $i $tmp" )
 cat <<EOF > $tmp
-python $HOME/src/nyc-traffic/src/characterise/frequency.py $alpha \
+python $HOME/src/nyc-traffic/src/characterise/frequency.py $frequency $alpha \
   --data $SCRATCH/nyc/data \
   --output $output \
   --ledger $ledger \
