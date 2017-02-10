@@ -36,7 +36,7 @@ for i in `seq $nodes`; do
     tmp=`mktemp`
     ( >&2 echo "[ `date` ] $i $tmp" )
 cat <<EOF > $tmp
-python $HOME/src/nyc-traffic/src/characterise/frequency.py $frequency $alpha \
+python $HOME/src/nyc-traffic/src/characterise/classify.py $frequency $alpha \
   --data $SCRATCH/nyc/data \
   --output $output \
   --ledger $ledger \
