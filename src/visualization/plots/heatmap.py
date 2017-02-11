@@ -12,7 +12,10 @@ from lib.window import Window
 def func(args):
     (data, freq) = args
 
-    window = Window.from_path(data.parent)
+    try:
+        window = Window.from_path(data.parent)
+    except ValueError:
+        return
 
     log = logger.getlogger()
     log.info('{0} {1}'.format(window, data.stem))
@@ -38,7 +41,7 @@ log = logger.getlogger(True)
 columns = [ 'observation', 'offset', 'mean' ]
 with Pool() as pool:
     iterable = map(lambda x: (x, args.frequency), args.data.glob('**/*.csv'))
-    data = pool.imap_unordered(func, iterable)
+    data = filter(None, pool.imap_unordered(func, iterable))
     df = pd.DataFrame.from_records(data, columns=columns)
 groups = df.groupby(by=columns[:-1])
 table = groups.mean().unstack()
