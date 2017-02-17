@@ -1,11 +1,15 @@
 #!/bin/bash
 
+output=$TMPDIR/heatmap
+mkdir $output
+
 for i in $SCRATCH/nyc/classify/*; do
     qsub=`mktemp`
     cat <<EOF > $qsub
 python $HOME/src/nyc-traffic/src/visualization/plots/heatmap.py \
        --data $i \
-       --output $TMPDIR/`basename $i`.png
+       --output $output/`basename $i`.png \
+       --save-data $output/`basename $i`.csv
 EOF
     qsub \
 	-j oe \
