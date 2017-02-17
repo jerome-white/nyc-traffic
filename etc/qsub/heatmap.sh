@@ -1,6 +1,7 @@
 #!/bin/bash
 
 output=$TMPDIR/heatmap
+rm --recursive --force $output
 mkdir $output
 
 for i in $SCRATCH/nyc/classify/*; do
