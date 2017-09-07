@@ -1,23 +1,24 @@
 #!/bin/bash
 
-output=$TMPDIR/heatmap
+output=$SCRATCH/nyc/heatmap
 rm --recursive --force $output
 mkdir $output
 
 for i in $SCRATCH/nyc/classify/*; do
-    qsub=`mktemp`
-    cat <<EOF > $qsub
+    j=`basename $i`
+    tmp=`mktemp`
+
+    cat <<EOF > $tmp
 python $HOME/src/nyc-traffic/src/visualization/plots/heatmap.py \
        --data $i \
-       --output $output/`basename $i`.png \
-       --save-data $output/`basename $i`.csv
+       --output $output/`$j`.png \
+       --save-data $output/`$j`.csv
 EOF
-    qsub \
-	-j oe \
-	-l nodes=1:ppn=20,mem=60GB,walltime=2:00:00 \
-	-N heatmap \
-	-V \
-	$qsub
+    sbatch \
+	--mem=60GB \
+	--time=2:00:00 \
+	--nodes=1 \
+	--cpus-per-task=20 \
+	--job-name heatmap-$j \
+	$tmp
 done > jobs
-
-# leave a blank line at the end
