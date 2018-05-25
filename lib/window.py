@@ -2,6 +2,8 @@ from pathlib import Path
 
 class Window:
     def __init__(self, observation=1, offset=1):
+        assert(observation > 0)
+
         self.observation = observation
         self.offset = offset
 
@@ -27,11 +29,14 @@ class Window:
         components = map(int, path.parts[-2:])
 
         return cls(*components)
-    
+
     def topath(self):
         parts = (self.observation, self.offset)
 
         return Path(*[ '{0:02d}'.format(x) for x in parts ])
 
     def split(self, seq):
+        if len(seq) != len(self):
+            raise ValueError('Sequence length should match window length')
+
         yield from [ seq[:self.observation], seq[-self.observation:] ]
