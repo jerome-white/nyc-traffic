@@ -1,5 +1,8 @@
+import uuid
 import multiprocessing as mp
+from pathlib import Path
 from argparse import ArgumentParser
+from tempfile import TemporaryDirectory
 
 import numpy as np
 import pandas as pd
@@ -47,9 +50,17 @@ args = arguments.parse_args()
 log = logger.getlogger(True)
 
 with mp.Pool(args.workers) as pool:
+    while True:
+        u = str(uuid.uuid4()).split('-')
+        path = Path(u[0])
+        if not path.exists():
+            path.mkdir()
+            break
+
+    log.info(path)
     for (i, j) in pool.imap_unordered(func, each(args)):
         log.info(i)
 
         title = str(i)
         j.plot.line(grid=True, title=title)
-        plt.savefig(title + '.png')
+        plt.savefig(path.joinpath(title + '.png'))
