@@ -25,7 +25,7 @@ class ChangePoint:
             segments.append(aggregate(i))
         diff = self.change(window.offset, *segments)
 
-        return self.isjam(diff)
+        return float(self.isjam(diff))
 
     def change(self, duration, before, after):
         '''
