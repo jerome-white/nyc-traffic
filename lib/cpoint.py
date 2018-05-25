@@ -15,14 +15,14 @@ class ChangePoint:
         self.isjam = lambda x: relation(x, threshold)
 
     def classify(self, seq, window, aggregate=np.mean):
-        if len(seq) != len(window):
-            return np.nan
-
         segments = []
-        for i in window.split(seq):
-            if np.isnan(i).any():
-                return np.nan
-            segments.append(aggregate(i))
+        try:
+            for i in window.split(seq):
+                if np.isnan(i).any():
+                    raise ValueError()
+                segments.append(aggregate(i))
+        except ValueError:
+            return np.nan
         diff = self.change(window.offset, *segments)
 
         return float(self.isjam(diff))
