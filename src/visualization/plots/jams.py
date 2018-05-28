@@ -2,7 +2,6 @@ import uuid
 import multiprocessing as mp
 from pathlib import Path
 from argparse import ArgumentParser
-from tempfile import TemporaryDirectory
 
 import numpy as np
 import pandas as pd
