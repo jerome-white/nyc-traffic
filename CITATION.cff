@@ -1,19 +1,20 @@
 cff-version: 1.2.0
 message: "The work in this repository contributed to the following"
-type: article
-authors:
-- family-names: "Bhardwaj"
-  given-names: "Ankit"
-- family-names: "Iyer"
-  given-names: "Shiva"
-- family-names: "White"
-  given-names: "Jerome"
-  orcid: "https://orcid.org/0000-0003-4148-8834"
-- family-names: "Subramanian"
-  given-names: "Lakshminarayanan"
-title: "Understanding sudden traffic jams: From emergence to impact"
-doi: 10.1016/j.deveng.2022.100105
-journal: Development Engineering
-volume: 8
-pages: 100105
-year: 2023
+preferred-citation:
+  type: article
+  authors:
+  - family-names: "Bhardwaj"
+    given-names: "Ankit"
+  - family-names: "Iyer"
+    given-names: "Shiva"
+  - family-names: "White"
+    given-names: "Jerome"
+    orcid: "https://orcid.org/0000-0003-4148-8834"
+  - family-names: "Subramanian"
+    given-names: "Lakshminarayanan"
+  title: "Understanding sudden traffic jams: From emergence to impact"
+  doi: 10.1016/j.deveng.2022.100105
+  journal: Development Engineering
+  volume: 8
+  pages: 100105
+  year: 2023
