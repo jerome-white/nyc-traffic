@@ -1,5 +1,6 @@
 cff-version: 1.2.0
 message: "The work in this repository contributed to the following"
+type: article
 authors:
 - family-names: "Bhardwaj"
   given-names: "Ankit"
